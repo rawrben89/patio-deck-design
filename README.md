@@ -45,6 +45,11 @@ framing, stairs, railing, fasteners, footings), and estimate cost with Quebec ta
 - **⚖ Compare** — wood vs composite side-by-side, including ~10-year staining upkeep for wood.
 - **📚 Saved** — keep several named designs in the browser.
 - **📋 Proposal / PDF** now embeds plan + 3D + section views.
+- **🏛 Permit sheet** — a print-ready drawing set: dimensioned plan + side section, a **footing
+  schedule** (X/Y from the house corner, size, depth), a project-data spec table, and a Québec/CNB
+  code-compliance summary.
+- **🔩 Beam & post assembly guide** — build steps, ply fastening (2-ply nails vs 3-ply bolts),
+  splice/crown rules, post-cap detail and joist ties, generated from the design's own numbers.
 
 ## Tests
 - `node test.mjs` runs headless engine sanity checks (no browser): stubs the DOM, loads the page's

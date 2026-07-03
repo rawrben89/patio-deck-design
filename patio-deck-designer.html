@@ -221,6 +221,7 @@
     <button class="small ghost" onclick="openCompare()" title="Wood vs composite">⚖ Compare</button>
     <button class="small ghost" onclick="openAI()">🤖 AI auto-fill</button>
     <button class="small primary" onclick="generateProposal()">📋 Proposal / PDF</button>
+    <button class="small ghost" onclick="generatePermit()">🏛 Permit sheet</button>
     <button class="small ghost" onclick="exportCSV()">📄 CSV</button>
     <button class="small ghost" onclick="openSaves()">📚 Saved</button>
     <button class="small ghost" onclick="saveProject()">💾 Save</button>
@@ -909,25 +910,33 @@ function drawFraming2D(){
     if(F.attached){ if(F.alongLen) line(x0,y0,x0,y1,'#d1533a',4,[7,4]); else line(x0,y0,x1,y0,'#d1533a',4,[7,4]); }
   });
 }
-// dimensioned footing layout (2D) — post/footing coordinates measured from the house-side corner
-function drawFootingPlan(){
-  const U=unionMetrics(state.sections), seen=new Set(); let n=0;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
+// footing/post coordinates (absolute + offset from the house-side corner) — shared by the
+// overlay and the permit footing schedule
+function footingCoords(){
+  const U=unionMetrics(state.sections), seen=new Set(), out=[];
   state.sections.forEach(s=>{
     const F=framingLayout(s), nP=Math.max(2,Math.floor(F.runLen/F.postSpacing)+1);
     F.beamPos.forEach(bp=>{ for(let p=0;p<nP;p++){ const along=Math.min(p*F.postSpacing,F.runLen);
       const fx=F.alongLen?s.x+bp:s.x+along, fy=F.alongLen?s.y+along:s.y+bp;
-      const key=fx.toFixed(2)+','+fy.toFixed(2); if(seen.has(key))continue; seen.add(key); n++;
-      ctx.beginPath();ctx.arc(px(fx),px(fy),6,0,Math.PI*2);ctx.fillStyle='#141a1f';ctx.fill();ctx.strokeStyle='#f6a623';ctx.lineWidth=2;ctx.stroke();
-      ctx.beginPath();ctx.arc(px(fx),px(fy),2,0,Math.PI*2);ctx.fillStyle='#f6a623';ctx.fill();
-      const txt=`${fmtLen(fx-U.minX)}, ${fmtLen(fy-U.minY)}`; ctx.font='700 9px system-ui';
-      const w=ctx.measureText(txt).width+6; ctx.fillStyle='#0a0e11'; ctx.fillRect(px(fx)-w/2,px(fy)-21,w,13);
-      ctx.fillStyle='#f6d79a'; ctx.fillText(txt,px(fx),px(fy)-14);
-    }});
+      const key=fx.toFixed(2)+','+fy.toFixed(2); if(seen.has(key))continue; seen.add(key);
+      out.push({ax:fx,ay:fy,dx:fx-U.minX,dy:fy-U.minY}); }});
+  });
+  return out;
+}
+// dimensioned footing layout (2D) — post/footing coordinates measured from the house-side corner
+function drawFootingPlan(){
+  const U=unionMetrics(state.sections), pts=footingCoords();
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  pts.forEach(pt=>{
+    ctx.beginPath();ctx.arc(px(pt.ax),px(pt.ay),6,0,Math.PI*2);ctx.fillStyle='#141a1f';ctx.fill();ctx.strokeStyle='#f6a623';ctx.lineWidth=2;ctx.stroke();
+    ctx.beginPath();ctx.arc(px(pt.ax),px(pt.ay),2,0,Math.PI*2);ctx.fillStyle='#f6a623';ctx.fill();
+    const txt=`${fmtLen(pt.dx)}, ${fmtLen(pt.dy)}`; ctx.font='700 9px system-ui';
+    const w=ctx.measureText(txt).width+6; ctx.fillStyle='#0a0e11'; ctx.fillRect(px(pt.ax)-w/2,px(pt.ay)-21,w,13);
+    ctx.fillStyle='#f6d79a'; ctx.fillText(txt,px(pt.ax),px(pt.ay)-14);
   });
   ctx.textAlign='left'; ctx.fillStyle='#63d3c4'; ctx.font='700 10px system-ui';
-  ctx.fillText('⌂ 0,0 = house-side corner · '+n+' footings',px(U.minX)+4,px(U.minY)-18);
-  return n;
+  ctx.fillText('⌂ 0,0 = house-side corner · '+pts.length+' footings',px(U.minX)+4,px(U.minY)-18);
+  return pts.length;
 }
 // dimension strings on the overall footprint (2D)
 function drawDims(U){
@@ -1920,6 +1929,88 @@ function generateProposal(){
   const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to open the proposal');return;}
   w.document.write(html); w.document.close(); toast('Proposal generated');
 }
+/* ============================================================ PERMIT SHEET (dimensioned plan + section + footing schedule + code summary) ============================================================ */
+function generatePermit(){
+  if(!lastBOQ) recalc();
+  const r=lastBOQ, g=id=>document.getElementById(id);
+  const proj=(prompt('Project name / address for the permit sheet (optional):','')||'').trim();
+  // capture a dimensioned plan (with the footing overlay) and the side section
+  const sv3d=view3d, svElev=elevView, svFoot=g('showFootings').checked, svFram=g('showFraming').checked;
+  let imgPlan='', imgElev='';
+  try{
+    view3d=false; elevView=false; g('showFootings').checked=true; g('showFraming').checked=false; draw(); imgPlan=cv.toDataURL('image/png');
+    view3d=false; elevView=true; draw(); imgElev=cv.toDataURL('image/png');
+  }catch(e){}
+  view3d=sv3d; elevView=svElev; g('showFootings').checked=svFoot; g('showFraming').checked=svFram; draw();
+  const foot=footingCoords();
+  const block=g('footing').value==='block', dia=g('footingDia').value;
+  const bagsPer=block?0:footingBags(parseFloat(dia)||8, r.frostDepth);
+  const footRows=foot.map((p,i)=>`<tr><td>P${i+1}</td><td class="r">${fmtLen(p.dx)}</td><td class="r">${fmtLen(p.dy)}</td><td class="r">${block?'deck block':dia+'″ Ø'}</td><td class="r">${block?'on grade':fmtLen(r.frostDepth)}</td></tr>`).join('');
+  const codes=codeItems(r).map(it=>`<li class="${it.ok===false?'bad':it.ok===true?'ok':'inf'}">${it.ok===true?'✓':it.ok===false?'!':'·'} ${it.txt.replace(/<[^>]+>/g,'')}</li>`).join('');
+  const dims=state.sections.map(s=>`${fmtLen(s.w)}×${fmtLen(s.h)}${s.z!=null?` @ ${fmtLen(s.z)}`:''}`).join('  +  ');
+  const today=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Deck Permit Sheet${proj?' — '+proj:''}</title><style>
+    @page{margin:12mm}*{box-sizing:border-box}
+    body{font:12px/1.5 "Segoe UI",Roboto,Arial,sans-serif;color:#111;margin:0;background:#f2f4f6}
+    .sheet{max-width:900px;margin:16px auto;background:#fff;border:1px solid #ccc}
+    .hd{border-bottom:2px solid #111;padding:14px 20px;display:flex;align-items:flex-end;gap:16px}
+    .hd h1{margin:0;font-size:19px;letter-spacing:-.01em}.hd .sub{color:#555;font-size:11px;margin-top:2px}
+    .hd .box{margin-left:auto;text-align:right;font-size:11px;color:#333;border:1px solid #999;padding:6px 10px}
+    .body{padding:16px 20px}
+    h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#333;border-bottom:1px solid #bbb;padding-bottom:4px;margin:18px 0 8px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    img{width:100%;border:1px solid #999;background:#fff}
+    .cap{font-size:10px;color:#666;text-align:center;margin-top:3px}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th,td{border:1px solid #bbb;padding:4px 7px;text-align:left}th{background:#eee}
+    th.r,td.r{text-align:right}
+    .spec td:first-child{color:#555;width:42%}
+    ul.codes{list-style:none;padding:0;margin:0;columns:1}
+    ul.codes li{padding:3px 0;border-bottom:1px solid #eee;font-size:11px}
+    ul.codes li.bad{color:#a11}ul.codes li.ok{color:#161}
+    .sign{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:22px}
+    .sign .l{border-top:1px solid #333;padding-top:5px;font-size:10px;color:#555}
+    .disc{margin-top:14px;padding:9px 11px;border:1px solid #bbb;background:#f7f7f7;color:#444;font-size:10px}
+    .btns{position:sticky;top:0;background:#dfe3e7;padding:10px 16px;display:flex;gap:8px}
+    .btns button{font:inherit;padding:8px 15px;border:none;border-radius:6px;background:#111;color:#fff;font-weight:700;cursor:pointer}
+    .btns button.g{background:#c3ccd4;color:#222}
+    tr,td,img{page-break-inside:avoid}
+    @media print{.btns{display:none}body{background:#fff}.sheet{border:none;margin:0;max-width:none}}
+  </style></head><body>
+  <div class="btns"><button onclick="window.print()">🖨️ Save as PDF / Print</button><button class="g" onclick="window.close()">Close</button></div>
+  <div class="sheet">
+    <div class="hd"><div><h1>Deck — Permit Drawing Set</h1><div class="sub">${proj||'Residential patio deck'} · Prepared ${today}</div></div>
+      <div class="box">Sheet 1 of 1<br>Not to scale · dimensions govern</div></div>
+    <div class="body">
+      <div class="grid2">
+        <div>${imgPlan?`<img src="${imgPlan}"><div class="cap">Plan — footing layout dimensioned from house-side corner (⌂ 0,0)</div>`:''}</div>
+        <div>${imgElev?`<img src="${imgElev}"><div class="cap">Side section — height, posts, footings, frost line</div>`:''}</div>
+      </div>
+      <h2>Project data</h2>
+      <table class="spec">
+        <tr><td>Footprint</td><td>${dims}  ·  ${fmtArea(r.area)}</td></tr>
+        <tr><td>Height above grade</td><td>${r.multiLevel?`${fmtLen(r.hMin)}–${fmtLen(r.hMax)} (multi-level)`:fmtLen(r.hMax)}</td></tr>
+        <tr><td>Decking</td><td>${MATERIALS[state.material].label} · ${r.deckBoards} × ${g('boardLen').value}′${r.diagonal?' · 45° diagonal':''}</td></tr>
+        <tr><td>Joists</td><td>${r.joistSizeUsed} @ ${g('joistOC').value}″ O.C. · bay span ${r.effSpanMax.toFixed(1)}′ / ${r.joistSpanMax.toFixed(1)}′ max</td></tr>
+        <tr><td>Beam</td><td>${r.beamUsed.size}, ${r.beamUsed.ply}-ply built-up × ${r.beamLines} line(s)</td></tr>
+        <tr><td>Posts</td><td>${r.postCount} × 6×6 @ ${fmtLen(r.postSpacingEff)}${r.cantMax>0?` · ${fmtLen(r.cantMax)} joist cantilever`:''}</td></tr>
+        <tr><td>Footings</td><td>${block?'Deck blocks (on grade)':`${dia}″ sonotube to ${fmtLen(r.frostDepth)} · ≈${bagsPer} bags concrete each`}</td></tr>
+        <tr><td>Attachment</td><td>${g('attached').checked?'Attached — ledger + flashing + lateral hold-downs':'Freestanding'}</td></tr>
+        ${r.stairInfo?`<tr><td>Stairs</td><td>${r.stairInfo.risers} risers / ${r.stairInfo.treads} treads · ${fmtLen(r.stairInfo.stairW)} wide</td></tr>`:''}
+      </table>
+      <h2>Footing schedule <span style="font-weight:400;text-transform:none;color:#888">(${foot.length} footings · X,Y from house-side corner)</span></h2>
+      <table><thead><tr><th>Tag</th><th class="r">X</th><th class="r">Y</th><th class="r">Size</th><th class="r">Depth</th></tr></thead><tbody>${footRows||'<tr><td colspan="5">—</td></tr>'}</tbody></table>
+      <h2>Code compliance summary <span style="font-weight:400;text-transform:none;color:#888">(Québec / CNB — verify with your municipality)</span></h2>
+      <ul class="codes">${codes}</ul>
+      <div class="sign"><div class="l">Prepared / applicant</div><div class="l">Reviewed · date</div></div>
+      <div class="disc"><b>Estimator output — not stamped engineered drawings.</b> Spans, beam/footing sizes and stair/guard geometry are conservative estimates; a permit reviewer or engineer must confirm them against the Code de construction du Québec / RBQ. Verify frost depth and setbacks with your municipality before excavation.</div>
+    </div>
+  </div>
+  <script>setTimeout(()=>window.print(),450);<\/script>
+  </body></html>`;
+  const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to open the permit sheet');return;}
+  w.document.write(html); w.document.close(); toast('Permit sheet generated');
+}
 /* ============================================================ AI AUTO-FILL (optional; uses Anthropic API) ============================================================ */
 let aiImageData=null, aiImageType='image/png';
 const AI_PROMPT=`You are a deck-planning assistant. From the user's description and/or the photo, infer patio deck specifications and return ONLY a single JSON object (no prose, no markdown fences). Use best estimates in FEET/INCHES; omit fields you truly can't infer. Schema:
@@ -2091,9 +2182,9 @@ function beamGuide(r){
 }
 
 /* ============================================================ QUÉBEC CODE CHECK (general guidance) ============================================================ */
-function codeCheck(r){
-  const g=id=>document.getElementById(id), rows=[];
-  const li=(ok,txt)=>rows.push(`<div class="cc ${ok===true?'ok':ok===false?'bad':'info'}">${ok===true?'✅':ok===false?'⚠️':'ℹ️'} ${txt}</div>`);
+function codeItems(r){
+  const g=id=>document.getElementById(id), items=[];
+  const li=(ok,txt)=>items.push({ok,txt});
   const heightFt=r.hMax||parseFloat(g('deckHeight').value)||0;
   if(r.multiLevel) li('info',`Multi-level deck — heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}. Each level's guard/stairs are checked against its own height; transition steps between levels are added manually.`);
   // Guardrails — CNB/Québec: guard required when walking surface > 600 mm (~24″) above grade
@@ -2132,6 +2223,10 @@ function codeCheck(r){
   li(r.effSpanMax<=r.joistSpanMax+0.01 && !r.spanFail, `Longest joist bay <b>${r.effSpanMax.toFixed(1)}′</b> vs <b>${r.joistSpanMax.toFixed(1)}′</b> max for <b>${r.joistSizeUsed}</b> @ ${g('joistOC').value}″ O.C.${r.spanFail?' — deepen joists or add a beam.':''}`);
   // Ledger
   if(g('attached').checked) li('info','Attached deck: fasten the <b>ledger</b> with lag/through-bolts + flashing (not nails), and use joist hangers.');
+  return items;
+}
+function codeCheck(r){
+  const rows=codeItems(r).map(it=>`<div class="cc ${it.ok===true?'ok':it.ok===false?'bad':'info'}">${it.ok===true?'✅':it.ok===false?'⚠️':'ℹ️'} ${it.txt}</div>`);
   return `<div class="grp code-grp"><h2><span class="ic">📐</span> Code check <span class="cc-note">Québec / CNB — planning guidance, not a permit</span></h2>${rows.join('')}
     <div class="hint" style="margin-top:8px">Summarizes the Code de construction du Québec / National Building Code for planning only. Most decks need a <b>municipal permit</b> — always confirm locally.</div></div>`;
 }
