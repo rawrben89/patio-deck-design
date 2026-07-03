@@ -146,7 +146,8 @@
 
   .sec-item{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:7px;background:var(--bg2);border:1px solid var(--line);
     border-radius:8px;padding:6px 8px;transition:border-color .15s}
-  .sec-item .brk{flex-basis:100%;height:0}
+  .sec-item.srow{flex-direction:column;align-items:stretch;gap:5px}
+  .srow-line{display:flex;align-items:center;gap:6px;width:100%;min-width:0}
   .sec-item.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(246,166,35,.12)}
   .sec-item .sw{width:13px;height:13px;border-radius:4px;flex:none}
   .sec-item input{padding:5px 7px;font-size:12px}
@@ -249,6 +250,7 @@
         <button data-mat="wood" class="on" onclick="setMaterial('wood')">🌲 PT Wood</button>
         <button data-mat="comp" onclick="setMaterial('comp')">🧱 Composite</button>
       </div>
+      <label class="chk" style="margin-top:8px"><input type="checkbox" id="useCostco" onchange="toggleCostco()"> 🛒 Use Costco <b>LEADVISION Elegance Premium</b> kit specs (8′ × 5&nbsp;7⁄16″ · 4-pack $99.99, incl. clips &amp; screws)</label>
       <label>Board size (width &amp; type)</label>
       <select id="boardProfile"></select>
       <div class="row">
@@ -463,6 +465,8 @@
     </div>
 
     <h2 style="margin:4px 0 10px"><span class="ic">🧾</span> Materials &amp; cost breakdown</h2>
+    <div class="hint" style="margin:-4px 0 6px">Exclude categories from the estimate — e.g. a Costco board kit already includes fasteners, or you're only pricing the deck surface:</div>
+    <div id="excludeBox" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <div id="catList"></div>
    </div>
 
@@ -699,18 +703,22 @@ function setDir(d){
 function renderSectionList(){
   const box=document.getElementById('sectionList'); box.innerHTML='';
   state.sections.forEach((s,i)=>{
-    const div=document.createElement('div'); div.className='sec-item'+(s.id===selId?' sel':'');
+    const div=document.createElement('div');
     const gh=parseFloat(document.getElementById('deckHeight').value)||0;
-    div.innerHTML=`<span class="sw" style="background:${SECTION_COLORS[i%SECTION_COLORS.length]}"></span>
-      <input type="number" value="${s.w}" step="0.5" min="1" title="width" style="width:50px" data-id="${s.id}" data-k="w">
-      <span class="muted">×</span>
-      <input type="number" value="${s.h}" step="0.5" min="1" title="length" style="width:50px" data-id="${s.id}" data-k="h">
-      <span class="muted" style="font-size:11px">ft</span>
-      <button class="small danger" style="margin-left:auto" data-del="${s.id}" aria-label="Delete section">✖</button>
-      <div class="brk"></div>
-      <span class="muted" style="font-size:11px">↕ height</span>
-      <input type="number" value="${s.z!=null?s.z:''}" placeholder="${gh} (default)" step="0.5" min="0" title="height above grade (blank = deck default)" style="width:56px" data-id="${s.id}" data-k="z">
-      <span class="muted" style="font-size:11px">ft</span>`;
+    div.className='sec-item srow'+(s.id===selId?' sel':'');
+    div.innerHTML=`<div class="srow-line">
+        <span class="sw" style="background:${SECTION_COLORS[i%SECTION_COLORS.length]}"></span>
+        <input type="number" value="${s.w}" step="0.5" min="1" title="width" style="width:50px" data-id="${s.id}" data-k="w">
+        <span class="muted">×</span>
+        <input type="number" value="${s.h}" step="0.5" min="1" title="length" style="width:50px" data-id="${s.id}" data-k="h">
+        <span class="muted" style="font-size:11px">ft</span>
+        <button class="small danger" style="margin-left:auto" data-del="${s.id}" aria-label="Delete section">✖</button>
+      </div>
+      <div class="srow-line">
+        <span class="muted" style="font-size:11px">↕ height</span>
+        <input type="number" value="${s.z!=null?s.z:''}" placeholder="${gh} (default)" step="0.5" min="0" title="height above grade (blank = deck default)" style="width:56px" data-id="${s.id}" data-k="z">
+        <span class="muted" style="font-size:11px">ft</span>
+      </div>`;
     box.appendChild(div);
   });
   box.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{
@@ -915,7 +923,10 @@ function stairCentre(side,U,pos,stairW){
   const target=full[0]+pos*(full[1]-full[0]);
   let best=ints[0],bestD=Infinity;
   ints.forEach(iv=>{ const d=target<iv[0]?iv[0]-target:(target>iv[1]?target-iv[1]:0); if(d<bestD){bestD=d;best=iv;} });
-  const L=best[1]-best[0], half=stairW/2, margin=Math.min(STAIR_CORNER_CLEAR,Math.max(0,(L-stairW)/2));
+  // valid centre range is [best0+half, best1-half]; reserve a corner clearance but never collapse it to
+  // a point (which would force the stairs to the middle regardless of the position slider)
+  const L=best[1]-best[0], half=stairW/2, slack=Math.max(0,L-stairW);
+  const margin=Math.min(STAIR_CORNER_CLEAR, slack*0.25);
   const cLo=best[0]+half+margin, cHi=best[1]-half-margin;
   return {centre: cLo<=cHi?Math.max(cLo,Math.min(cHi,target)):(best[0]+best[1])/2, full, interval:best};
 }
@@ -1741,8 +1752,11 @@ function computeBOQ(){
   const deckPlanFor=L=>{ let b=0,off=0; state.sections.forEach(s=>{ const ac=state.dir==='length'?s.w:s.h, rn=state.dir==='length'?s.h:s.w, fA=Math.max(0,ac-2*borderW), fR=Math.max(0,rn-2*borderW); if(fA>0&&fR>0){const rows=Math.ceil(fA/faceFt),perRow=Math.ceil(fR/L); b+=rows*perRow; off+=rows*(perRow*L-fR);} }); const lf=b*L; return {boardLen:L,boards:Math.ceil(b*waste),pct:lf>0?off/lf*100:0}; };
   let suggest=null; [8,10,12,16,20].forEach(L=>{ const p=deckPlanFor(L); if(!suggest||p.pct<suggest.pct-0.05||(Math.abs(p.pct-suggest.pct)<0.05&&p.boards<suggest.boards)) suggest=p; });
 
+  // ---------- EXCLUDED CATEGORIES (framing / footings / hardware / … dropped from the estimate) ----------
+  const shown=items.filter(it=>!excluded[it.cat]);
+
   // ---------- BUDGET ADD-ONS (labour / permit / delivery / contingency) ----------
-  const matSubtotal=items.reduce((a,i)=>a+i.total,0);
+  const matSubtotal=shown.reduce((a,i)=>a+i.total,0);
   const laborRate=parseFloat(g('labor').value)||0, permit=parseFloat(g('permitFee').value)||0;
   const delivery=parseFloat(g('delivery').value)||0, contPct=parseFloat(g('contingency').value)||0;
   const laborTotal=laborRate*U.area, contingency=(matSubtotal+laborTotal)*contPct/100;
@@ -1752,7 +1766,7 @@ function computeBOQ(){
   if(contingency>0)addons.push({name:`Contingency (${contPct}%)`,note:'on materials + labour',total:contingency});
   if(permit>0)addons.push({name:'Permit fee',note:'municipal · not taxed',total:permit,noTax:true});
 
-  return {items, area:U.area, perimeter:U.perimeter, exposed, sides:U.sides, deckBoards, joistCount, postCount, beamLines:beamLinesTot, boardLen, stairInfo, stairSide, overlap, sumArea, maxSpan, effSpanMax, joistSpanMax, joistSizeUsed, beamUsed, beamWarn, spanFail, postSpacingEff, diagonal, cutList, offcutLf, wastePct, borderRows, faceIn:prof.face, suggest,
+  return {items:shown, area:U.area, perimeter:U.perimeter, exposed, sides:U.sides, deckBoards, joistCount, postCount, beamLines:beamLinesTot, boardLen, stairInfo, stairSide, overlap, sumArea, maxSpan, effSpanMax, joistSpanMax, joistSizeUsed, beamUsed, beamWarn, spanFail, postSpacingEff, diagonal, cutList, offcutLf, wastePct, borderRows, faceIn:prof.face, suggest,
     hMin, hMax, avgH, multiLevel, cantMax, hasCant, frostDepth, transitions:transitions.length, transRisers,
     matSubtotal, addons, laborTotal, permit, delivery, contingency};
 }
@@ -1873,6 +1887,7 @@ function collectInputs(){
     showFraming:g('showFraming').checked, showFootings:g('showFootings').checked, cantilever:g('cantilever').checked,
     joistSize:g('joistSize').value, beamSize:g('beamSize').value, footingDia:g('footingDia').value, frostDepth:g('frostDepth').value,
     diagonal:g('diagonal').checked, labor:g('labor').value, contingency:g('contingency').value, permitFee:g('permitFee').value, delivery:g('delivery').value,
+    useCostco:g('useCostco').checked, excluded:{...excluded},
     metric, docLang };
 }
 function applyInputs(d){
@@ -1884,7 +1899,9 @@ function applyInputs(d){
   if(d.profile){document.getElementById('boardProfile').value=d.profile;state.profile=d.profile;}
   setDir(state.dir);
   ['boardLen','gap','waste','packSize','joistOC','deckHeight','postSpacing','footing','stairWidth','riserH','store','scale','railStyle','borderRows','stairSide','stairPos','joistSize','beamSize','footingDia','frostDepth','labor','contingency','permitFee','delivery'].forEach(k=>{if(d[k]!=null)document.getElementById(k).value=d[k];});
-  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming','showFootings','cantilever','diagonal'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
+  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming','showFootings','cantilever','diagonal','useCostco'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
+  if(document.getElementById('useCostco').checked)ensureCostcoProfile();   // make sure the kit profile/price exist before selection
+  Object.keys(excluded).forEach(k=>delete excluded[k]); Object.assign(excluded,d.excluded||{}); buildExcludeToggles();
   metric=!!d.metric; document.getElementById('unitsBtn').textContent='⇄ '+(metric?'m':'ft');
   docLang=(d.docLang==='fr')?'fr':'en'; document.getElementById('docLangBtn').textContent='🌐 '+docLang.toUpperCase();
   document.getElementById('packWrap').style.display=state.material==='comp'?'block':'none';
@@ -2172,6 +2189,44 @@ function applyProduct(d){
   return `Added “${nm}” — ${face}″ wide${lenFt?`, ${lenFt}′`:''}, $${perBoard.toFixed(2)}/board${pieces>1?` (${pieces}/pack)`:''}.${cov}${inc} Adjust it under “Edit unit prices”.`;
 }
 
+/* ---- Costco LEADVISION Elegance Premium composite kit (item #1885794) ---- */
+// 244 cm × 13.81 cm = 96″ × 5 7⁄16″ boards, 4/pack $99.99, kit includes clips, end caps & screws
+const COSTCO_LV={ id:'costco_lv4000', priceKey:'deck_costco_lv4000', face:5.4375, lenFt:8, pieces:4, pack:99.99,
+  name:'LEADVISION Elegance Premium — Costco (5 7⁄16″)',
+  label:'LEADVISION Elegance Premium (Costco #1885794) — $99.99/pack of 4',
+  search:'leadvision elegance premium composite deck board costco' };
+function ensureCostcoProfile(){
+  if(!state.prices[COSTCO_LV.priceKey]) state.prices[COSTCO_LV.priceKey]={label:COSTCO_LV.label,unit:'/board',v:+(COSTCO_LV.pack/COSTCO_LV.pieces).toFixed(2),search:COSTCO_LV.search};
+  if(!(state.customProfiles||[]).some(p=>p.id===COSTCO_LV.id)) state.customProfiles.push({id:COSTCO_LV.id,mat:'comp',name:COSTCO_LV.name,face:COSTCO_LV.face,priceKey:COSTCO_LV.priceKey});
+}
+function toggleCostco(){
+  if(document.getElementById('useCostco').checked){
+    ensureCostcoProfile();
+    setMaterial('comp');                                             // rebuilds profile list (incl. the kit)
+    document.getElementById('boardProfile').value=COSTCO_LV.id; state.profile=COSTCO_LV.id;
+    document.getElementById('boardLen').value=8;
+    document.getElementById('packSize').value=COSTCO_LV.pieces; document.getElementById('packWrap').style.display='block';
+    // the kit ships with its own fixing/starter clips & screws → drop the deck-surface hardware line
+    const ex=document.getElementById('ex_hardware'); if(ex){ ex.checked=true; }
+    renderPriceEditor(); draw(); recalc();
+    toast('Costco LEADVISION kit specs applied');
+  } else { draw(); recalc(); }
+}
+
+/* ---- Exclude whole categories from the estimate (e.g. framing / footings / hardware already covered) ---- */
+const excluded={};
+function buildExcludeToggles(){
+  const box=document.getElementById('excludeBox'); if(!box)return; box.innerHTML='';
+  Object.keys(CAT).sort((a,b)=>CAT[a].order-CAT[b].order).forEach(k=>{
+    if(k==='decking')return;                                         // the deck surface is always priced
+    const lab=document.createElement('label'); lab.className='pill'; lab.style.cssText='cursor:pointer;user-select:none';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.id='ex_'+k; cb.style.margin='0 4px 0 0'; cb.checked=!!excluded[k];
+    cb.addEventListener('change',e=>{ excluded[k]=e.target.checked; recalc(); persist(); });
+    const txt=document.createElement('span'); txt.textContent=' '+CAT[k].ic+' '+CAT[k].label;
+    lab.appendChild(cb); lab.appendChild(txt); box.appendChild(lab);
+  });
+}
+
 let persistT; function persist(){ clearTimeout(persistT); persistT=setTimeout(()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(collectInputs()));}catch(e){} snapshot();},400); }
 let toastT; function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
 
@@ -2360,7 +2415,7 @@ document.getElementById('snap').addEventListener('input',()=>{});
 document.getElementById('photoOp').addEventListener('input',draw);
 
 (function init(){
-  buildProfileOptions(); buildFrostZones(); updateFootingVis(); renderSectionList(); renderPriceEditor();
+  buildProfileOptions(); buildFrostZones(); buildExcludeToggles(); updateFootingVis(); renderSectionList(); renderPriceEditor();
   let loaded=false;
   const shared=decodeShare();                                  // 1) a shared #d= link wins
   if(shared){ try{ applyInputs(shared); loaded=true; setTimeout(()=>toast('Loaded shared design'),300); }catch(e){} }
