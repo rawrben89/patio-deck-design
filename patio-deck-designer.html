@@ -385,6 +385,7 @@
       <button class="small" id="drawBtn" onclick="toggleDraw()">✏️ Draw: OFF</button>
       <button class="small ghost" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo" onclick="undo()" disabled>↶</button>
       <button class="small ghost" id="redoBtn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" onclick="redo()" disabled>↷</button>
+      <label class="pill" style="cursor:pointer"><input type="checkbox" id="showBoards" style="margin:0 4px 0 0"> 🪵 Board joints</label>
       <label class="pill" style="cursor:pointer"><input type="checkbox" id="showFraming" style="margin:0 4px 0 0"> 🧱 Framing</label>
       <label class="pill" style="cursor:pointer"><input type="checkbox" id="showFootings" style="margin:0 4px 0 0"> 📍 Footing plan</label>
       <label class="pill" style="cursor:pointer">📷 Photo
@@ -982,6 +983,47 @@ function drawFraming2D(){
     if(F.attached){ if(F.alongLen) line(x0,y0,x0,y1,'#d1533a',4,[7,4]); else line(x0,y0,x1,y0,'#d1533a',4,[7,4]); }
   });
 }
+// decking board layout (2D) — draws each board and, crucially, where it ENDS (butt joints),
+// matching the takeoff: field inset by any picture-frame border, whole boards then one cut piece
+function drawDecking2D(){
+  const g=id=>document.getElementById(id);
+  const face=(findProfile(state.profile)||{face:5.5}).face;
+  const gap=parseFloat(g('gap').value)||0, step=(face+gap)/12;
+  const boardLen=parseFloat(g('boardLen').value)||12;
+  const alongLen=state.dir==='length';                        // boards run along the run (y for length, x for width)
+  const hasBorder=g('hasBorder').checked, borderW=hasBorder?(parseInt(g('borderRows').value)||1)*step:0;
+  const teal='#63d3c4';
+  state.sections.forEach(s=>{
+    const fx0=s.x+borderW, fy0=s.y+borderW;
+    const fAcross=(alongLen?s.w:s.h)-2*borderW, fRun=(alongLen?s.h:s.w)-2*borderW;   // across = rows, run = board length
+    if(fAcross<=0.01||fRun<=0.01)return;
+    // side-by-side board separators (thin) — the full field, inset for the border
+    ctx.setLineDash([]); ctx.strokeStyle=teal+'55'; ctx.lineWidth=1;
+    for(let o=step;o<fAcross-0.01;o+=step){
+      if(alongLen){ctx.beginPath();ctx.moveTo(px(fx0+o),px(fy0));ctx.lineTo(px(fx0+o),px(fy0+fRun));ctx.stroke();}
+      else {ctx.beginPath();ctx.moveTo(px(fx0),px(fy0+o));ctx.lineTo(px(fx0+fRun),px(fy0+o));ctx.stroke();}
+    }
+    // butt joints (dashed, bold) — where each board ends along the run
+    ctx.setLineDash([7,4]); ctx.strokeStyle=teal; ctx.lineWidth=1.8;
+    for(let d=boardLen; d<fRun-0.01; d+=boardLen){
+      if(alongLen){ctx.beginPath();ctx.moveTo(px(fx0),px(fy0+d));ctx.lineTo(px(fx0+fAcross),px(fy0+d));ctx.stroke();}
+      else {ctx.beginPath();ctx.moveTo(px(fx0+d),px(fy0));ctx.lineTo(px(fx0+d),px(fy0+fRun));ctx.stroke();}
+    }
+    ctx.setLineDash([]);
+    // label: whole boards + the length of the final cut piece in each run
+    const perRow=Math.ceil(fRun/boardLen), cut=+(fRun-(perRow-1)*boardLen).toFixed(2);
+    const lastJoint=(perRow-1)*boardLen;
+    if(perRow>1){
+      ctx.fillStyle=teal; ctx.font='700 9px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const midA=fAcross/2, cutMid=lastJoint+cut/2, txt=`cut ${fmtLen(cut)}`;
+      const lx=alongLen?fx0+midA:fx0+cutMid, ly=alongLen?fy0+cutMid:fy0+midA;
+      const w=ctx.measureText(txt).width+6;
+      ctx.fillStyle='rgba(10,14,17,.72)'; ctx.fillRect(px(lx)-w/2,px(ly)-7,w,14);
+      ctx.fillStyle=teal; ctx.fillText(txt,px(lx),px(ly));
+      ctx.textBaseline='alphabetic';
+    }
+  });
+}
 // footing/post coordinates (absolute + offset from the house-side corner) — shared by the
 // overlay and the permit footing schedule
 function footingCoords(){
@@ -1078,6 +1120,7 @@ function draw(){
     ctx.strokeStyle='#f6a623';ctx.lineWidth=2;ctx.setLineDash([]);
     state.sections.forEach(s=>{ if(s.w>2*bw&&s.h>2*bw)ctx.strokeRect(px(s.x+bw),px(s.y+bw),px(s.w-2*bw),px(s.h-2*bw)); });
   }
+  if(document.getElementById('showBoards').checked) drawDecking2D();
   if(document.getElementById('showFraming').checked) drawFraming2D();
   if(document.getElementById('showFootings').checked) drawFootingPlan();
   const U2=unionMetrics(state.sections);
@@ -1137,7 +1180,9 @@ function draw(){
   drawCompass();
   const fram=document.getElementById('showFraming').checked
     ? ` &nbsp;|&nbsp; <span style="color:#a9814a">━ joists</span> <span style="color:#c56a1c">━ beam ▪ post</span> <span style="color:#7d9b5c">┅ blocking</span> <span style="color:#d1533a">┅ ledger</span>`
-    : ` &nbsp;|&nbsp; drag edges to resize · edges snap to neighbours · drag stairs to move`;
+    : (document.getElementById('showBoards').checked
+      ? ` &nbsp;|&nbsp; <span style="color:#63d3c4">┅ board joint (butt end) · “cut” = final piece per run</span>`
+      : ` &nbsp;|&nbsp; drag edges to resize · edges snap to neighbours · drag stairs to move`);
   document.getElementById('cvLegend').innerHTML=`Grid = 1 ft · bold = 5 ft${fram} &nbsp;|&nbsp; ${state.sections.length} section${state.sections.length>1?'s':''}`;
 }
 function draw3D(){
@@ -1884,7 +1929,7 @@ function collectInputs(){
     railStyle:g('railStyle').value, hasBorder:g('hasBorder').checked, borderRows:g('borderRows').value, view3d,
     hasHouse:g('hasHouse').checked, hasDrainage:g('hasDrainage').checked, stairSide:g('stairSide').value, stairPos:g('stairPos').value,
     railN:g('railN').checked, railS:g('railS').checked, railE:g('railE').checked, railW:g('railW').checked,
-    showFraming:g('showFraming').checked, showFootings:g('showFootings').checked, cantilever:g('cantilever').checked,
+    showBoards:g('showBoards').checked, showFraming:g('showFraming').checked, showFootings:g('showFootings').checked, cantilever:g('cantilever').checked,
     joistSize:g('joistSize').value, beamSize:g('beamSize').value, footingDia:g('footingDia').value, frostDepth:g('frostDepth').value,
     diagonal:g('diagonal').checked, labor:g('labor').value, contingency:g('contingency').value, permitFee:g('permitFee').value, delivery:g('delivery').value,
     useCostco:g('useCostco').checked, excluded:{...excluded},
@@ -1899,7 +1944,7 @@ function applyInputs(d){
   if(d.profile){document.getElementById('boardProfile').value=d.profile;state.profile=d.profile;}
   setDir(state.dir);
   ['boardLen','gap','waste','packSize','joistOC','deckHeight','postSpacing','footing','stairWidth','riserH','store','scale','railStyle','borderRows','stairSide','stairPos','joistSize','beamSize','footingDia','frostDepth','labor','contingency','permitFee','delivery'].forEach(k=>{if(d[k]!=null)document.getElementById(k).value=d[k];});
-  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming','showFootings','cantilever','diagonal','useCostco'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
+  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showBoards','showFraming','showFootings','cantilever','diagonal','useCostco'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
   if(document.getElementById('useCostco').checked)ensureCostcoProfile();   // make sure the kit profile/price exist before selection
   Object.keys(excluded).forEach(k=>delete excluded[k]); Object.assign(excluded,d.excluded||{}); buildExcludeToggles();
   metric=!!d.metric; document.getElementById('unitsBtn').textContent='⇄ '+(metric?'m':'ft');
@@ -2408,6 +2453,7 @@ function renderSaves(){
 });
 document.getElementById('waste').addEventListener('input',e=>{document.getElementById('wasteVal').textContent=e.target.value;recalc();});
 document.getElementById('scale').addEventListener('input',draw);
+document.getElementById('showBoards').addEventListener('change',draw);
 document.getElementById('showFraming').addEventListener('change',draw);
 document.getElementById('showFootings').addEventListener('change',draw);
 document.getElementById('cantilever').addEventListener('change',()=>{draw();recalc();});
