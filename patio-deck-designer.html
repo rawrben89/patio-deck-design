@@ -595,6 +595,20 @@ const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const SC=()=>parseFloat(document.getElementById('scale').value);
 const px=ft=>ft*SC(), toFt=p=>p/SC();
 const snapFt=v=>{const s=parseFloat(document.getElementById('snap').value)||0; return s>0?Math.round(v/s)*s:Math.round(v*100)/100;};
+const fmtFt=v=>{ let ft=Math.floor(v+1e-6), inch=Math.round((v-ft)*12); if(inch===12){ft++;inch=0;} return inch?`${ft}′${inch}″`:`${ft}′`; };
+function shadeHex(hex,f){ const m=hex.replace('#',''); const cl=x=>Math.max(0,Math.min(255,Math.round(x)));
+  const r=cl(parseInt(m.slice(0,2),16)*f),g=cl(parseInt(m.slice(2,4),16)*f),b=cl(parseInt(m.slice(4,6),16)*f);
+  return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+// nudge a section so its edges align with any neighbour's edge (clean L/T/U shapes)
+function snapToNeighbors(s){
+  const tol=0.45, others=state.sections.filter(o=>o.id!==s.id); if(!others.length)return;
+  const mX=[s.x,s.x+s.w], mY=[s.y,s.y+s.h]; let dX=null,dY=null;
+  others.forEach(o=>{
+    [o.x,o.x+o.w].forEach(ox=>mX.forEach(mx=>{const d=ox-mx; if(Math.abs(d)<tol&&(dX===null||Math.abs(d)<Math.abs(dX)))dX=d;}));
+    [o.y,o.y+o.h].forEach(oy=>mY.forEach(my=>{const d=oy-my; if(Math.abs(d)<tol&&(dY===null||Math.abs(d)<Math.abs(dY)))dY=d;}));
+  });
+  if(dX!==null)s.x=Math.max(0,s.x+dX); if(dY!==null)s.y=Math.max(0,s.y+dY);
+}
 
 function setView(is3d){
   view3d=is3d;
@@ -664,9 +678,45 @@ function drawFraming2D(){
         for(let p=0;p<nP;p++){const pxv=x0+Math.min(p*F.postSpacing,F.runLen);ctx.fillStyle='#241708';ctx.fillRect(px(pxv)-5,px(y0+bp)-5,10,10);ctx.fillStyle='#c56a1c';ctx.fillRect(px(pxv)-3,px(y0+bp)-3,6,6);}
       }
     });
+    // mid-span blocking / bridging rows (dashed, perpendicular to joists)
+    const nBlock=Math.max(0,Math.round(F.across/6.5)-1);
+    for(let bk=1;bk<=nBlock;bk++){ const bp=F.across*bk/(nBlock+1);
+      if(F.alongLen) line(x0+bp,y0,x0+bp,y1,'#7d9b5c',1.4,[5,4]); else line(x0,y0+bp,x1,y0+bp,'#7d9b5c',1.4,[5,4]); }
     // ledger on the house/support side (across = 0 edge), dashed red
     if(F.attached){ if(F.alongLen) line(x0,y0,x0,y1,'#d1533a',4,[7,4]); else line(x0,y0,x1,y0,'#d1533a',4,[7,4]); }
   });
+}
+// dimension strings on the overall footprint (2D)
+function drawDims(U){
+  const {minX,minY,maxX,maxY}=U, off=1.0;
+  ctx.setLineDash([]); ctx.strokeStyle='#5b6b76'; ctx.lineWidth=1; ctx.font='700 11px system-ui';
+  const arrow=(x1,y1,x2,y2)=>{ ctx.beginPath();ctx.moveTo(px(x1),px(y1));ctx.lineTo(px(x2),px(y2));ctx.stroke();
+    const a=Math.atan2(y2-y1,x2-x1);
+    [[x2,y2,a],[x1,y1,a+Math.PI]].forEach(([ax,ay,an])=>{ctx.beginPath();ctx.moveTo(px(ax),px(ay));
+      ctx.lineTo(px(ax)-Math.cos(an-0.42)*7,px(ay)-Math.sin(an-0.42)*7);ctx.moveTo(px(ax),px(ay));
+      ctx.lineTo(px(ax)-Math.cos(an+0.42)*7,px(ay)-Math.sin(an+0.42)*7);ctx.stroke();}); };
+  const label=(txt,cxp,cyp,rot)=>{ ctx.save();ctx.translate(cxp,cyp);if(rot)ctx.rotate(-Math.PI/2);
+    ctx.textAlign='center';ctx.textBaseline='middle';const w=ctx.measureText(txt).width+8;
+    ctx.fillStyle='#0a0e11';ctx.fillRect(-w/2,-8,w,16);ctx.fillStyle='#c3d0d8';ctx.fillText(txt,0,0);ctx.restore(); };
+  // overall width (below)
+  const wy=maxY+off;
+  ctx.beginPath();ctx.moveTo(px(minX),px(maxY));ctx.lineTo(px(minX),px(wy+0.3));ctx.moveTo(px(maxX),px(maxY));ctx.lineTo(px(maxX),px(wy+0.3));ctx.stroke();
+  arrow(minX,wy,maxX,wy); label(fmtFt(maxX-minX),px((minX+maxX)/2),px(wy),false);
+  // overall length (left)
+  const hx=minX-off;
+  ctx.beginPath();ctx.moveTo(px(minX),px(minY));ctx.lineTo(px(hx-0.3),px(minY));ctx.moveTo(px(minX),px(maxY));ctx.lineTo(px(hx-0.3),px(maxY));ctx.stroke();
+  arrow(hx,minY,hx,maxY); label(fmtFt(maxY-minY),px(hx),px((minY+maxY)/2),true);
+  ctx.textBaseline='alphabetic';
+}
+// compass + afternoon-sun hint (screen-space, top-right). North = toward the house (−y / up)
+function drawCompass(){
+  const x=cv.width-40,y=40,R=16;
+  ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.fillStyle='rgba(10,14,17,.72)';ctx.fill();ctx.strokeStyle='#33424c';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x,y-R+3);ctx.lineTo(x-4,y+3);ctx.lineTo(x,y+0.5);ctx.lineTo(x+4,y+3);ctx.closePath();ctx.fillStyle='#f6a623';ctx.fill();
+  ctx.fillStyle='#c3d0d8';ctx.font='700 9px system-ui';ctx.fillText('N',x,y-R+11);
+  ctx.font='12px system-ui';ctx.fillText('☀',x,y+R+9);
+  ctx.restore();
 }
 function draw(){
   if(view3d){draw3D();return;}
@@ -705,6 +755,7 @@ function draw(){
   }
   if(document.getElementById('showFraming').checked) drawFraming2D();
   const U2=unionMetrics(state.sections);
+  drawDims(U2);
   // house wall + sliding door (2D, architectural symbol just outside the ledger edge)
   if(document.getElementById('hasHouse').checked){
     const {x0,x1,y}=houseSpan(U2), dcx=(x0+x1)/2, doorW=Math.min(7,(x1-x0)*0.4), t=Math.max(0.5,6/SC());
@@ -746,9 +797,10 @@ function draw(){
   if(resizing) cv.style.cursor=CUR[resizing.handle];
   else if(stairDrag) cv.style.cursor='grabbing';
   else if(drawing) cv.style.cursor='crosshair';
+  drawCompass();
   const fram=document.getElementById('showFraming').checked
-    ? ` &nbsp;|&nbsp; <span style="color:#a9814a">━ joists</span> <span style="color:#c56a1c">━ beam ▪ post</span> <span style="color:#d1533a">┅ ledger</span>`
-    : ` &nbsp;|&nbsp; drag edges to resize · drag stairs to move`;
+    ? ` &nbsp;|&nbsp; <span style="color:#a9814a">━ joists</span> <span style="color:#c56a1c">━ beam ▪ post</span> <span style="color:#7d9b5c">┅ blocking</span> <span style="color:#d1533a">┅ ledger</span>`
+    : ` &nbsp;|&nbsp; drag edges to resize · edges snap to neighbours · drag stairs to move`;
   document.getElementById('cvLegend').innerHTML=`Grid = 1 ft · bold = 5 ft${fram} &nbsp;|&nbsp; ${state.sections.length} section${state.sections.length>1?'s':''}`;
 }
 function draw3D(){
@@ -760,7 +812,8 @@ function draw3D(){
   const comp=state.material==='comp';
   const face=(MATERIALS[state.material].profiles.find(p=>p.id===state.profile)||{face:5.5}).face;
   const gap=parseFloat(g('gap').value)||0, step=(face+gap)/12;
-  const hasRail=g('hasRail').checked, railH=hasRail?3:0;
+  const hasRail=g('hasRail').checked, railStyle=g('railStyle').value;
+  const railH=hasRail?(H>5.9?3.5:3):0;                       // 42″ guard on tall decks, else 36″
   const attached=g('attached').checked, hasBorder=g('hasBorder').checked;
   const hasHouse=g('hasHouse').checked, showFraming=g('showFraming').checked;
   const railOn={N:g('railN').checked,S:g('railS').checked,E:g('railE').checked,W:g('railW').checked};
@@ -780,6 +833,10 @@ function draw3D(){
   top3dFaces=[]; // cache projected top faces for click-picking
   const quad=(a,b,c,d,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.lineTo(...c);ctx.lineTo(...d);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}};
   const line=(a,b,color,lw)=>{ctx.beginPath();ctx.moveTo(...P(...a));ctx.lineTo(...P(...b));ctx.strokeStyle=color;ctx.lineWidth=lw||1;ctx.stroke();};
+  // ground reference grid at z=0 (scale cue)
+  { const m=3;
+    for(let gx=Math.floor(pB.minX)-m;gx<=Math.ceil(pB.maxX)+m;gx++) line([gx,pB.minY-m,0],[gx,pB.maxY+m,0],'#141e24',1);
+    for(let gy=Math.floor(pB.minY)-m;gy<=Math.ceil(pB.maxY)+m;gy++) line([pB.minX-m,gy,0],[pB.maxX+m,gy,0],'#141e24',1); }
   const col=comp?{top:'#9aa7b0',topSel:'#c3d0d8',topL:'#7d8a94',e:'#727f89',s:'#5c686f',rail:'#c6cfd5',railT:'#aab4bb'}
                 :{top:'#c88b4d',topSel:'#e6ad6c',topL:'#a06f39',e:'#96602e',s:'#7b4e26',rail:'#d9b58b',railT:'#b98a5a'};
   const postC={e:'#6b5d38',s:'#54492c'};
@@ -792,16 +849,20 @@ function draw3D(){
   const order=[...state.sections].sort((a,b)=>(a.x+a.y)-(b.x+b.y));
   order.forEach(s=>{
     const x0=s.x,y0=s.y,x1=s.x+s.w,y1=s.y+s.h;
-    // posts
-    const inset=0.5, pw=0.5;
+    // posts on concrete footings
+    const inset=0.5, pw=0.5, ftg=0.45;
     [[x0+inset,y0+inset],[x1-inset-pw,y0+inset],[x0+inset,y1-inset-pw],[x1-inset-pw,y1-inset-pw]].forEach(([pxx,pyy])=>{
+      // footing pad at grade
+      quad(P(pxx-ftg/2,pyy-ftg/2,0.06),P(pxx+pw+ftg/2,pyy-ftg/2,0.06),P(pxx+pw+ftg/2,pyy+pw+ftg/2,0.06),P(pxx-ftg/2,pyy+pw+ftg/2,0.06),'#3a3228','#0007');
       quad(P(pxx,pyy+pw,0),P(pxx+pw,pyy+pw,0),P(pxx+pw,pyy+pw,H-th),P(pxx,pyy+pw,H-th),postC.s,'#0006');
       quad(P(pxx+pw,pyy,0),P(pxx+pw,pyy+pw,0),P(pxx+pw,pyy+pw,H-th),P(pxx+pw,pyy,H-th),postC.e,'#0006');
     });
     if(!showFraming){
-      // slab band sides (solid skirt)
+      // slab band sides (solid skirt) with a darker band near the bottom for grounding/AO
       quad(P(x1,y0,H-th),P(x1,y1,H-th),P(x1,y1,H),P(x1,y0,H),col.e,'#0004');
       quad(P(x0,y1,H-th),P(x1,y1,H-th),P(x1,y1,H),P(x0,y1,H),col.s,'#0004');
+      quad(P(x1,y0,H-th),P(x1,y1,H-th),P(x1,y1,H-th+0.3),P(x1,y0,H-th+0.3),shadeHex(col.e,0.7),null);
+      quad(P(x0,y1,H-th),P(x1,y1,H-th),P(x1,y1,H-th+0.3),P(x0,y1,H-th+0.3),shadeHex(col.s,0.7),null);
     } else {
       // open framing: joists + rim + beams under the deck
       const F=framingLayout(s), zJ=H-th+0.05, zB=H-th-0.02;
@@ -809,6 +870,9 @@ function draw3D(){
         if(F.alongLen) line([x0,y0+o,zJ],[x1,y0+o,zJ],'#bb8c4f',1.2); else line([x0+o,y0,zJ],[x0+o,y1,zJ],'#bb8c4f',1.2); }
       line([x0,y0,zJ],[x1,y0,zJ],'#8a6636',2.2); line([x0,y1,zJ],[x1,y1,zJ],'#8a6636',2.2);
       line([x0,y0,zJ],[x0,y1,zJ],'#8a6636',2.2); line([x1,y0,zJ],[x1,y1,zJ],'#8a6636',2.2);
+      const nBl=Math.max(0,Math.round(F.across/6.5)-1);   // mid-span blocking rows
+      for(let bk=1;bk<=nBl;bk++){ const bp=F.across*bk/(nBl+1);
+        if(F.alongLen) line([x0+bp,y0,zJ],[x0+bp,y1,zJ],'#7d9b5c',1.2); else line([x0,y0+bp,zJ],[x1,y0+bp,zJ],'#7d9b5c',1.2); }
       F.beamPos.forEach(bp=>{ if(F.alongLen) line([x0+bp,y0,zB],[x0+bp,y1,zB],'#c56a1c',3.5); else line([x0,y0+bp,zB],[x1,y0+bp,zB],'#c56a1c',3.5); });
     }
     // top surface (cache polygon for picking; translucent when framing so joists show through)
@@ -829,9 +893,22 @@ function draw3D(){
     }
     // railing on outer edges — skip house side, and open a gap where the stairs are
     if(hasRail){
-      const drawRail=(ax,ay,bx,by)=>{ const len=Math.hypot(bx-ax,by-ay); if(len<0.2)return; const n=Math.max(2,Math.round(len/0.45));
-        for(let i=0;i<=n;i++){const t=i/n,x=ax+(bx-ax)*t,y=ay+(by-ay)*t;line([x,y,H],[x,y,H+railH],col.rail,1);}
-        line([ax,ay,H+railH],[bx,by,H+railH],col.railT,2.5); line([ax,ay,H+railH-0.1],[bx,by,H+railH-0.1],col.railT,1); };
+      const drawRail=(ax,ay,bx,by)=>{ const len=Math.hypot(bx-ax,by-ay); if(len<0.2)return;
+        const top=H+railH, bot=H+0.15;
+        line([ax,ay,H],[ax,ay,top+0.12],col.railT,3);            // newel posts at both ends
+        line([bx,by,H],[bx,by,top+0.12],col.railT,3);
+        line([ax,ay,top],[bx,by,top],col.railT,2.6);             // top rail
+        line([ax,ay,bot],[bx,by,bot],col.railT,1.6);             // bottom rail
+        if(railStyle==='rail_glass'){
+          ctx.save();ctx.globalAlpha=0.16;quad(P(ax,ay,bot),P(bx,by,bot),P(bx,by,top),P(ax,ay,top),'#bfe0ea',null);ctx.restore();
+          ctx.save();ctx.globalAlpha=0.45;line([(ax+bx)/2,(ay+by)/2,bot],[(ax+bx)/2,(ay+by)/2,top],'#d3ecf3',1);ctx.restore();
+        } else if(railStyle==='rail_cable'){
+          const n=Math.max(3,Math.round(railH/0.28));            // horizontal cables
+          for(let i=1;i<n;i++){const z=bot+(top-bot)*i/n;line([ax,ay,z],[bx,by,z],'#9aa2a8',0.8);}
+        } else {
+          const n=Math.max(2,Math.round(len/0.42));              // pickets (aluminum / wood / composite)
+          for(let i=0;i<=n;i++){const t=i/n,x=ax+(bx-ax)*t,y=ay+(by-ay)*t;line([x,y,bot],[x,y,top],col.rail,1);}
+        } };
       const edges=[[x0,y0,x1,y0,'N'],[x1,y0,x1,y1,'E'],[x0,y1,x1,y1,'S'],[x0,y0,x0,y1,'W']];
       edges.forEach(([ax,ay,bx,by,side])=>{
         if(!railOn[side]||(attached&&side==='N'))return; // side off / house side
@@ -865,6 +942,16 @@ function draw3D(){
       const a=[bx,by],b=[bx+along[0]*stairW,by+along[1]*stairW],c=[fx+along[0]*stairW,fy+along[1]*stairW],d=[fx,fy];
       quad(P(...a,z),P(...b,z),P(...c,z),P(...d,z),col.top,'#0006');           // tread top
       quad(P(...d,z),P(...c,z),P(...c,z2),P(...d,z2),col.s,'#0006');           // riser
+    }
+    // stringers on both sides
+    [0,stairW].forEach(o=>{ const ax=sx+along[0]*o, ay=sy+along[1]*o;
+      line([ax,ay,sh],[ax+out[0]*run*treads,ay+out[1]*run*treads,0],'#7b4e26',2.6); });
+    // sloped handrail (code: required at 3+ risers)
+    if(hasRail && treads>=2){ const hh=2.9;
+      [0,stairW].forEach(o=>{ const ax=sx+along[0]*o, ay=sy+along[1]*o, bx=ax+out[0]*run*treads, by=ay+out[1]*run*treads;
+        line([ax,ay,sh+hh],[bx,by,hh],col.railT,2.2);        // rail follows the slope
+        line([ax,ay,sh],[ax,ay,sh+hh],col.railT,2.4);        // top post
+        line([bx,by,0],[bx,by,hh],col.railT,2.4); });        // bottom post
     }
   }
   // house wall + sliding patio door (3D) — starts at deck level so it never covers the deck
@@ -962,7 +1049,7 @@ cv.addEventListener('pointermove',e=>{
   if(drawing&&dragStart){ dragCur=evtFt(e); draw(); return; }
   if(resizing){ const s=state.sections.find(x=>x.id===resizing.id); resizeSection(s,resizing.handle,evtFt(e)); draw(); updateSelEditor(); return; }
   if(stairDrag){ dragStairTo(evtFt(e)); draw(); return; }
-  if(selId&&moveOffset){ const pt=evtFt(e); const s=state.sections.find(x=>x.id===selId); s.x=Math.max(0,pt.x-moveOffset.dx); s.y=Math.max(0,pt.y-moveOffset.dy); draw(); updateSelEditor(); return; }
+  if(selId&&moveOffset){ const pt=evtFt(e); const s=state.sections.find(x=>x.id===selId); s.x=Math.max(0,pt.x-moveOffset.dx); s.y=Math.max(0,pt.y-moveOffset.dy); snapToNeighbors(s); draw(); updateSelEditor(); return; }
   // hover cursor feedback
   if(drawing){ cv.style.cursor='crosshair'; return; }
   const hh=hitHandle(e); cv.style.cursor = hh?CUR[hh] : (stairHit(evtFt(e))?'grab' : (hitSection(evtFt(e))?'move':'default'));
