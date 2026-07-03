@@ -379,8 +379,8 @@
         <button id="viewElevBtn" onclick="setView('elev')">📐 Section</button>
       </div>
       <button class="small" id="drawBtn" onclick="toggleDraw()">✏️ Draw: OFF</button>
-      <button class="small ghost" id="undoBtn" title="Undo (Ctrl+Z)" onclick="undo()" disabled>↶</button>
-      <button class="small ghost" id="redoBtn" title="Redo (Ctrl+Shift+Z)" onclick="redo()" disabled>↷</button>
+      <button class="small ghost" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo" onclick="undo()" disabled>↶</button>
+      <button class="small ghost" id="redoBtn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" onclick="redo()" disabled>↷</button>
       <label class="pill" style="cursor:pointer"><input type="checkbox" id="showFraming" style="margin:0 4px 0 0"> 🧱 Framing</label>
       <label class="pill" style="cursor:pointer"><input type="checkbox" id="showFootings" style="margin:0 4px 0 0"> 📍 Footing plan</label>
       <label class="pill" style="cursor:pointer">📷 Photo
@@ -388,10 +388,10 @@
       </label>
       <span class="pill">Opacity <input type="range" id="photoOp" min="0" max="100" value="45" style="width:70px"></span>
       <button class="small ghost" onclick="removePhoto()">✖ Photo</button>
-      <button class="small ghost" onclick="fitView()">⤢ Fit</button>
+      <button class="small ghost" onclick="fitView()" aria-label="Fit deck to view">⤢ Fit</button>
     </div>
     <div class="canvas-shell">
-      <canvas id="cv" width="1000" height="680"></canvas>
+      <canvas id="cv" width="1000" height="680" role="img" aria-label="Deck plan / 3D / section drawing. Use the panels to edit dimensions; this canvas is a visual preview.">Deck drawing preview — your browser does not support canvas.</canvas>
       <div class="canvas-hint" id="cvHint">Drag to draw · tap a section to select &amp; move · pinch or scroll to zoom · Del to remove</div>
       <div class="canvas-legend" id="cvLegend"></div>
       <div class="sel-editor" id="selEditor">
@@ -410,9 +410,9 @@
         </div>
       </div>
       <div class="view3d-tools" id="view3dTools" style="display:none">
-        <button class="small" onclick="rotate3D(-25)">⟲</button>
-        <button class="small" onclick="resetView3D()">⌂ Reset</button>
-        <button class="small" onclick="rotate3D(25)">⟳</button>
+        <button class="small" onclick="rotate3D(-25)" aria-label="Rotate left">⟲</button>
+        <button class="small" onclick="resetView3D()" aria-label="Reset 3D view">⌂ Reset</button>
+        <button class="small" onclick="rotate3D(25)" aria-label="Rotate right">⟳</button>
       </div>
     </div>
   </div>
@@ -452,6 +452,7 @@
 
     <div id="warnBox"></div>
     <div id="structNote"></div>
+    <div id="beamNote"></div>
     <div id="codeNote"></div>
 
     <div class="grp">
@@ -804,14 +805,22 @@ function resetView3D(){ az3d=DEF_AZ; el3d=DEF_EL; zoom3d=1; draw(); }
 function getStairGeom(U){
   const g=id=>document.getElementById(id);
   if(!g('hasStairs').checked) return null;
-  const H=parseFloat(g('deckHeight').value)||0; if(H<=0) return null;
   const riser=parseFloat(g('riserH').value)||7.5;
-  const risers=Math.max(1,Math.round(H*12/riser)), treads=Math.max(1,risers-1);
   const stairW=parseFloat(g('stairWidth').value)||4;
   const pos=(parseFloat(g('stairPos').value)||50)/100, side=g('stairSide').value;
   const {minX,minY,maxX,maxY}=U;
   // snap the stair centre onto a contiguous run of real deck on this side (corner clearance kept)
   const centre=stairCentre(side,U,pos,stairW).centre;
+  // stairs descend from the deck level they actually sit on (multi-level aware), not the global default
+  const tol=0.05, atSide=state.sections.filter(s=>{
+    if(side==='S') return Math.abs((s.y+s.h)-maxY)<tol && centre>=s.x-tol && centre<=s.x+s.w+tol;
+    if(side==='N') return Math.abs(s.y-minY)<tol && centre>=s.x-tol && centre<=s.x+s.w+tol;
+    if(side==='E') return Math.abs((s.x+s.w)-maxX)<tol && centre>=s.y-tol && centre<=s.y+s.h+tol;
+    return Math.abs(s.x-minX)<tol && centre>=s.y-tol && centre<=s.y+s.h+tol;
+  });
+  const H = atSide.length ? secH(atSide[0]) : (parseFloat(g('deckHeight').value)||0);
+  if(H<=0) return null;
+  const risers=Math.max(1,Math.round(H*12/riser)), treads=Math.max(1,risers-1);
   let along,out,cx,cy;
   if(side==='S'){along=[1,0];out=[0,1];cx=centre;cy=maxY;}
   else if(side==='N'){along=[1,0];out=[0,-1];cx=centre;cy=minY;}
@@ -1711,6 +1720,7 @@ function recalc(){
       <span style="color:#7fb0c4">Toggle <b>🧱 Framing</b> / <b>📍 Footing plan</b> above the plan to see it drawn.</span>
     </div></div>`;
 
+  document.getElementById('beamNote').innerHTML=beamGuide(r);
   document.getElementById('codeNote').innerHTML=codeCheck(r);
 
   // ---- board cut list ----
@@ -2059,6 +2069,27 @@ function newDesign(){
   window.location.replace(location.pathname);   // reload fresh, drop any #share hash
 }
 
+/* ============================================================ BEAM & POST ASSEMBLY GUIDE (how to build it, with the design's own numbers) ============================================================ */
+function beamGuide(r){
+  const g=id=>document.getElementById(id);
+  const sz=r.beamUsed.size, ply=r.beamUsed.ply, ps=fmtLen(r.postSpacingEff);
+  const U=unionMetrics(state.sections);
+  const runDim=state.dir==='length'?(U.maxY-U.minY):(U.maxX-U.minX);   // beam runs the board direction
+  const attached=g('attached').checked, block=g('footing').value==='block';
+  const laminate = ply>=3
+    ? `<b>3-ply</b>: fasten with <b>½″ hot-dip galvanized through-bolts</b> (staggered top/bottom, ~24″ O.C.) or an approved structural screw (GRK RSS / Simpson SDWS) per its table — a 3-ply built-up beam should be bolted/structural-screwed, not just nailed.`
+    : `<b>2-ply</b>: laminate with <b>two staggered rows of 3½″ (10d) HDG nails at ~16″ O.C.</b> (or ½″ carriage bolts ~24″ O.C.). A bead of construction adhesive between plies adds stiffness.`;
+  return `<div class="grp"><h2><span class="ic">🔩</span> Beam &amp; post assembly <span class="cc-note">how to build it — your numbers</span></h2>
+    <div class="hint" style="line-height:1.62">
+      <b>Your beam:</b> ${ply} × ${sz} laminated into one built-up beam · ${r.beamLines} line(s) · each ≈ <b>${fmtLen(runDim)}</b> long, running the board direction.<br><br>
+      <b>1 · Build the beam.</b> ${laminate} Install <b>crown up</b>. Ply splices may land <b>only over a post</b>, and the joints in the two/three plies must be <b>staggered</b>, never stacked.<br>
+      <b>2 · Posts &amp; footings.</b> ${r.postCount} × 6×6 posts @ <b>${ps}</b> on ${block?'deck blocks (on-grade / floating decks only)':`${g('footingDia').value}″ sonotubes to <b>${fmtLen(r.frostDepth)}</b> (below the frost line)`}. Set an adjustable <b>post base</b> on each footing to hold the post off the concrete.<br>
+      <b>3 · Beam sits ON TOP of the posts.</b> Use a <b>post-cap saddle</b> (Simpson BC/BCS) or notch the 6×6 — a top-bearing beam is the code-friendly detail. Side-bolting the beam to the post face needs engineering. Cut every post so the beam sits <b>dead level</b>.<br>
+      <b>4 · Joists onto the beam.</b> ${attached?'Joists hang off the ledger at the house and ':'Joists '}bear on top of the beam; screw down and add a <b>hurricane / H1 tie</b> at each joist-over-beam crossing.${r.cantMax>0?` Joists may cantilever <b>${fmtLen(r.cantMax)}</b> past the beam.`:''}<br>
+      <span class="muted">Sizes/spacing come from your current design — confirm against the Code de construction du Québec and your inspector before building.</span>
+    </div></div>`;
+}
+
 /* ============================================================ QUÉBEC CODE CHECK (general guidance) ============================================================ */
 function codeCheck(r){
   const g=id=>document.getElementById(id), rows=[];
@@ -2086,6 +2117,10 @@ function codeCheck(r){
     li(riser<=7.875&&riser>=5, `Stair risers <b>${riser}″</b> — code range 5″–<b>7-7/8″ (200 mm)</b>; ${r.stairInfo.risers} risers, ${r.stairInfo.treads} treads.`);
     li('info','Min tread run <b>10″ (255 mm)</b>; a graspable <b>handrail</b> (865–965 mm) is required at <b>3+ risers</b>.');
     if(r.stairInfo.treads>=2) li('info','Stair flights more than 600 mm above grade also need a <b>guard</b> on the open side(s), not just a handrail.');
+    // input sanity: is the stair actually narrower than the deck edge it sits on?
+    const sw=parseFloat(g('stairWidth').value)||4, U=unionMetrics(state.sections);
+    const iv=(edgeIntervals(g('stairSide').value,U).ints||[]).reduce((a,b)=>(b[1]-b[0])>(a[1]-a[0])?b:a,[0,0]);
+    if(sw>iv[1]-iv[0]+0.01) li(false, `Stair width <b>${fmtLen(sw)}</b> is wider than the deck edge it sits on (<b>${fmtLen(iv[1]-iv[0])}</b>) — it will overhang. Narrow the stairs or move them to a longer side.`);
   }
   // Footings / frost
   const block=g('footing').value==='block';
