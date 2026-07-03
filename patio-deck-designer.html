@@ -281,6 +281,8 @@
           <input type="number" id="deckHeight" value="3" step="0.5" min="0">
         </div>
       </div>
+      <div class="hint" style="margin:-2px 0 2px">Global default height. Give a section its own height (in its row or the on-canvas editor) for a multi-level deck.</div>
+      <label class="chk"><input type="checkbox" id="cantilever"> Cantilever joists past the outer beam (moves footings inboard)</label>
       <div class="row">
         <div><label>Joist size</label>
           <select id="joistSize"><option value="auto" selected>Auto (fit span)</option><option value="2x6">2×6</option><option value="2x8">2×8</option><option value="2x10">2×10</option><option value="2x12">2×12</option></select>
@@ -302,6 +304,11 @@
           <select id="footingDia"><option value="8" selected>8″</option><option value="10">10″</option><option value="12">12″</option></select>
         </div>
         <div><label>Frost depth (ft)</label><input type="number" id="frostDepth" value="4.5" step="0.5" min="1"></div>
+      </div>
+      <div id="frostZoneRow" style="display:none">
+        <label>Region preset (fills frost depth)</label>
+        <select id="frostZone"></select>
+        <div class="hint" style="margin-top:3px">Typical required footing depth — always confirm with your municipality.</div>
       </div>
       <label class="chk" style="margin-top:6px"><input type="checkbox" id="hasDrainage"> Under-deck drainage (dry space below · water drains off)</label>
     </div>
@@ -375,6 +382,7 @@
       <button class="small ghost" id="undoBtn" title="Undo (Ctrl+Z)" onclick="undo()" disabled>↶</button>
       <button class="small ghost" id="redoBtn" title="Redo (Ctrl+Shift+Z)" onclick="redo()" disabled>↷</button>
       <label class="pill" style="cursor:pointer"><input type="checkbox" id="showFraming" style="margin:0 4px 0 0"> 🧱 Framing</label>
+      <label class="pill" style="cursor:pointer"><input type="checkbox" id="showFootings" style="margin:0 4px 0 0"> 📍 Footing plan</label>
       <label class="pill" style="cursor:pointer">📷 Photo
         <input type="file" id="photo" accept="image/*" onchange="loadPhoto(event)" style="width:0;height:0;opacity:0;position:absolute">
       </label>
@@ -391,6 +399,10 @@
         <div class="se-row">
           <input type="number" id="seW" step="0.5" min="1" title="width"> <span class="muted">×</span>
           <input type="number" id="seH" step="0.5" min="1" title="length"> <span class="muted">ft</span>
+        </div>
+        <div class="se-row">
+          <span class="muted" style="font-size:11px">Height</span>
+          <input type="number" id="seZ" step="0.5" min="0" title="height above grade (blank = deck default)"> <span class="muted">ft</span>
         </div>
         <div class="se-row">
           <button class="small" id="seDup">⧉ Duplicate</button>
@@ -607,6 +619,8 @@ const JOIST_SPANS={
   '2x12':{12:17.5,16:15.9,24:13.0},
 };
 const JOIST_ORDER=['2x6','2x8','2x10','2x12'];
+// max allowed joist cantilever (ft) past the outer beam, by size (also capped at ¼ back-span, DCA6-style)
+const CANT_MAX={'2x6':1.0,'2x8':2.0,'2x10':2.5,'2x12':3.0};
 const JOIST_PRICE={'2x6':'joist_2x6','2x8':'joist_2x8','2x10':'joist_2x10','2x12':'joist_2x12'};
 const BEAM_PRICE ={'2x8':'beam_2x8','2x10':'beam_2x10','2x12':'beam_2x12'};
 // allowable BEAM (post) spacing (ft) for a 2-ply built-up beam, by beam size and the joist span it carries
@@ -633,6 +647,20 @@ function pickBeam(postSpacing,joistSpan){
 const BAG_M3=0.0142;
 function footingBags(diaIn,depthFt){ const r=(diaIn*0.0254)/2, depth=depthFt*0.3048; const vol=Math.PI*r*r*depth; return Math.max(1,Math.ceil(vol/BAG_M3)); }
 const TUBE_PRICE={8:13.0,10:18.0,12:24.0};   // sonotube cost by diameter (in), ~4ft length
+// typical required footing / frost depth by Québec region (metres) — confirm with municipality
+const FROST_ZONES=[
+  {name:'— select region —', m:null},
+  {name:'Montréal / Laval / Longueuil', m:1.5},
+  {name:'Gatineau / Outaouais', m:1.5},
+  {name:'Sherbrooke / Estrie', m:1.5},
+  {name:'Québec City', m:1.5},
+  {name:'Trois-Rivières / Mauricie', m:1.6},
+  {name:'Drummondville / Centre-du-Québec', m:1.5},
+  {name:'Saguenay–Lac-Saint-Jean', m:1.8},
+  {name:'Abitibi-Témiscamingue', m:2.1},
+  {name:'Bas-Saint-Laurent / Gaspésie', m:1.8},
+  {name:'Côte-Nord', m:2.0},
+];
 
 const STORE_SEARCH = {
   canac:        q=>'https://www.canac.ca/en/search?q='+encodeURIComponent(q),
@@ -649,6 +677,8 @@ let state={ material:'wood', profile:'54x6', dir:'length',
   sections:[{id:1,x:6,y:6,w:16,h:12}], prices:structuredClone(DEFAULT_PRICES), photo:null, customProfiles:[] };
 // all board profiles for a material = built-in + user-imported (from a product photo)
 function allProfiles(mat){ return MATERIALS[mat].profiles.concat((state.customProfiles||[]).filter(p=>p.mat===mat)); }
+// per-section height above grade (ft); falls back to the global Deck height field (multi-level support)
+function secH(s){ const z=(s&&s.z); return (z!=null&&z!==''&&!isNaN(+z))?+z:(parseFloat(document.getElementById('deckHeight').value)||0); }
 function findProfile(id){ for(const m of ['wood','comp']){ const p=allProfiles(m).find(x=>x.id===id); if(p)return p; } return null; }
 let nextId=2, drawing=false, dragStart=null, dragCur=null, photoImg=null;
 let selId=null, moveOffset=null, resizing=null, stairDrag=false, collapsed={}, view3d=false;
@@ -662,6 +692,15 @@ function buildProfileOptions(){
   allProfiles(state.material).forEach(p=>{ const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o); });
   state.profile=allProfiles(state.material)[0].id; sel.value=state.profile;
 }
+function buildFrostZones(){
+  const sel=document.getElementById('frostZone'); if(!sel)return; sel.innerHTML='';
+  FROST_ZONES.forEach((z,i)=>{ const o=document.createElement('option'); o.value=i;
+    o.textContent=z.m?`${z.name} (${z.m} m / ${(z.m*3.28084).toFixed(1)} ft)`:z.name; sel.appendChild(o); });
+  sel.addEventListener('change',()=>{ const z=FROST_ZONES[+sel.value]; if(z&&z.m){ document.getElementById('frostDepth').value=+(z.m*3.28084).toFixed(1); draw(); recalc(); } });
+}
+function updateFootingVis(){ const block=document.getElementById('footing').value==='block';
+  document.getElementById('footingSpecRow').style.display=block?'none':'flex';
+  document.getElementById('frostZoneRow').style.display=block?'none':'block'; }
 function setMaterial(m){
   state.material=m;
   document.querySelectorAll('#matSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mat===m));
@@ -677,17 +716,23 @@ function renderSectionList(){
   const box=document.getElementById('sectionList'); box.innerHTML='';
   state.sections.forEach((s,i)=>{
     const div=document.createElement('div'); div.className='sec-item'+(s.id===selId?' sel':'');
+    const gh=parseFloat(document.getElementById('deckHeight').value)||0;
     div.innerHTML=`<span class="sw" style="background:${SECTION_COLORS[i%SECTION_COLORS.length]}"></span>
-      <input type="number" value="${s.w}" step="0.5" min="1" title="width" style="width:56px" data-id="${s.id}" data-k="w">
+      <input type="number" value="${s.w}" step="0.5" min="1" title="width" style="width:48px" data-id="${s.id}" data-k="w">
       <span class="muted">×</span>
-      <input type="number" value="${s.h}" step="0.5" min="1" title="length" style="width:56px" data-id="${s.id}" data-k="h">
+      <input type="number" value="${s.h}" step="0.5" min="1" title="length" style="width:48px" data-id="${s.id}" data-k="h">
       <span class="muted" style="font-size:11px">ft</span>
+      <span class="muted" style="font-size:11px;margin-left:4px">↕</span>
+      <input type="number" value="${s.z!=null?s.z:''}" placeholder="${gh}" step="0.5" min="0" title="height (blank = default)" style="width:48px" data-id="${s.id}" data-k="z">
+      <span class="muted" style="font-size:11px">h</span>
       <button class="small danger" style="margin-left:auto" data-del="${s.id}">✖</button>`;
     box.appendChild(div);
   });
   box.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{
-    const s=state.sections.find(x=>x.id==e.target.dataset.id);
-    s[e.target.dataset.k]=Math.max(1,parseFloat(e.target.value)||1); draw(); recalc();
+    const s=state.sections.find(x=>x.id==e.target.dataset.id), k=e.target.dataset.k;
+    if(k==='z'){ if(e.target.value===''||isNaN(parseFloat(e.target.value)))delete s.z; else s.z=Math.max(0,parseFloat(e.target.value)); }
+    else s[k]=Math.max(1,parseFloat(e.target.value)||1);
+    draw(); recalc();
   }));
   box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>delSection(+e.target.dataset.del)));
 }
@@ -764,11 +809,13 @@ function getStairGeom(U){
   const stairW=parseFloat(g('stairWidth').value)||4;
   const pos=(parseFloat(g('stairPos').value)||50)/100, side=g('stairSide').value;
   const {minX,minY,maxX,maxY}=U, W=maxX-minX, Hd=maxY-minY;
+  // keep the whole stair on the edge: centre stays ≥ half-width from either corner
+  const centreOn=(origin,len)=>{ const half=stairW/2; return len>stairW ? origin+Math.min(Math.max(pos*len,half),len-half) : origin+len/2; };
   let along,out,cx,cy;
-  if(side==='S'){along=[1,0];out=[0,1];cx=minX+pos*W;cy=maxY;}
-  else if(side==='N'){along=[1,0];out=[0,-1];cx=minX+pos*W;cy=minY;}
-  else if(side==='E'){along=[0,1];out=[1,0];cx=maxX;cy=minY+pos*Hd;}
-  else {along=[0,1];out=[-1,0];cx=minX;cy=minY+pos*Hd;}
+  if(side==='S'){along=[1,0];out=[0,1];cx=centreOn(minX,W);cy=maxY;}
+  else if(side==='N'){along=[1,0];out=[0,-1];cx=centreOn(minX,W);cy=minY;}
+  else if(side==='E'){along=[0,1];out=[1,0];cx=maxX;cy=centreOn(minY,Hd);}
+  else {along=[0,1];out=[-1,0];cx=minX;cy=centreOn(minY,Hd);}
   const sx=cx-along[0]*stairW/2, sy=cy-along[1]*stairW/2;
   return {side,along,out,sx,sy,stairW,treads,risers,H,run:0.9};
 }
@@ -785,13 +832,17 @@ function framingLayout(s){
   const alongLen=state.dir==='length';                 // joists span the "across" dim, perpendicular to boards
   const across=alongLen?s.w:s.h, runLen=alongLen?s.h:s.w;
   const nJoist=Math.floor(runLen/joistOC)+1;
+  const pref=g('joistSize').value;
+  // cantilever budget (matches the engine) — beams pulled inboard from the edge(s)
+  let cant=0; if(g('cantilever').checked){ const j0=(pref==='auto'?(pickJoist(across,joistOCin)||'2x12'):pref); cant=Math.min(CANT_MAX[j0]||2.0, across*0.25); }
+  const lo=attached?0:cant, hi=attached?(across-cant):(across-cant), supported=Math.max(1,hi-lo);
   // bays sized so each joist bay fits the chosen (or auto) joist — matches the takeoff engine
-  const pref=g('joistSize').value; let bays;
-  if(pref==='auto'){ bays=1; while(bays<=8){ if(pickJoist(across/bays,joistOCin))break; bays++; } }
-  else { const allow=JOIST_SPANS[pref][joistOCin]||10; bays=Math.max(1,Math.ceil(across/allow)); }
+  let bays;
+  if(pref==='auto'){ bays=1; while(bays<=8){ if(pickJoist(supported/bays,joistOCin))break; bays++; } }
+  else { const allow=JOIST_SPANS[pref][joistOCin]||10; bays=Math.max(1,Math.ceil(supported/allow)); }
   const nBeam=attached?bays:bays+1;
-  const beamPos=[]; if(attached){for(let i=1;i<=nBeam;i++)beamPos.push(across*i/nBeam);} else {for(let i=0;i<nBeam;i++)beamPos.push(nBeam>1?across*i/(nBeam-1):across/2);}
-  return {alongLen,across,runLen,joistOC,nJoist,nBeam,beamPos,postSpacing,attached};
+  const beamPos=[]; if(attached){for(let i=1;i<=nBeam;i++)beamPos.push(lo+supported*i/nBeam);} else {for(let i=0;i<nBeam;i++)beamPos.push(nBeam>1?lo+supported*i/(nBeam-1):across/2);}
+  return {alongLen,across,runLen,joistOC,nJoist,nBeam,beamPos,postSpacing,attached,cant};
 }
 function drawFraming2D(){
   const line=(x1,y1,x2,y2,c,w,dash)=>{ctx.setLineDash(dash||[]);ctx.strokeStyle=c;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(px(x1),px(y1));ctx.lineTo(px(x2),px(y2));ctx.stroke();ctx.setLineDash([]);};
@@ -819,6 +870,26 @@ function drawFraming2D(){
     // ledger on the house/support side (across = 0 edge), dashed red
     if(F.attached){ if(F.alongLen) line(x0,y0,x0,y1,'#d1533a',4,[7,4]); else line(x0,y0,x1,y0,'#d1533a',4,[7,4]); }
   });
+}
+// dimensioned footing layout (2D) — post/footing coordinates measured from the house-side corner
+function drawFootingPlan(){
+  const U=unionMetrics(state.sections), seen=new Set(); let n=0;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  state.sections.forEach(s=>{
+    const F=framingLayout(s), nP=Math.max(2,Math.floor(F.runLen/F.postSpacing)+1);
+    F.beamPos.forEach(bp=>{ for(let p=0;p<nP;p++){ const along=Math.min(p*F.postSpacing,F.runLen);
+      const fx=F.alongLen?s.x+bp:s.x+along, fy=F.alongLen?s.y+along:s.y+bp;
+      const key=fx.toFixed(2)+','+fy.toFixed(2); if(seen.has(key))continue; seen.add(key); n++;
+      ctx.beginPath();ctx.arc(px(fx),px(fy),6,0,Math.PI*2);ctx.fillStyle='#141a1f';ctx.fill();ctx.strokeStyle='#f6a623';ctx.lineWidth=2;ctx.stroke();
+      ctx.beginPath();ctx.arc(px(fx),px(fy),2,0,Math.PI*2);ctx.fillStyle='#f6a623';ctx.fill();
+      const txt=`${fmtLen(fx-U.minX)}, ${fmtLen(fy-U.minY)}`; ctx.font='700 9px system-ui';
+      const w=ctx.measureText(txt).width+6; ctx.fillStyle='#0a0e11'; ctx.fillRect(px(fx)-w/2,px(fy)-21,w,13);
+      ctx.fillStyle='#f6d79a'; ctx.fillText(txt,px(fx),px(fy)-14);
+    }});
+  });
+  ctx.textAlign='left'; ctx.fillStyle='#63d3c4'; ctx.font='700 10px system-ui';
+  ctx.fillText('⌂ 0,0 = house-side corner · '+n+' footings',px(U.minX)+4,px(U.minY)-18);
+  return n;
 }
 // dimension strings on the overall footprint (2D)
 function drawDims(U){
@@ -881,7 +952,7 @@ function draw(){
     ctx.fillStyle='#eef3f6'; ctx.font='700 13px system-ui'; ctx.textAlign='center';
     ctx.fillText(`${fmtLen(s.w)} × ${fmtLen(s.h)}`, px(s.x+s.w/2), px(s.y+s.h/2)+4);
     ctx.fillStyle=c; ctx.font='600 11px system-ui';
-    ctx.fillText(fmtArea(s.w*s.h), px(s.x+s.w/2), px(s.y+s.h/2)+20);
+    ctx.fillText(fmtArea(s.w*s.h)+(s.z!=null?`  ·  ↕${fmtLen(s.z)}`:''), px(s.x+s.w/2), px(s.y+s.h/2)+20);
   });
   if(document.getElementById('hasBorder').checked){
     const rows=parseInt(document.getElementById('borderRows').value)||1, bw=rows*step;
@@ -889,6 +960,7 @@ function draw(){
     state.sections.forEach(s=>{ if(s.w>2*bw&&s.h>2*bw)ctx.strokeRect(px(s.x+bw),px(s.y+bw),px(s.w-2*bw),px(s.h-2*bw)); });
   }
   if(document.getElementById('showFraming').checked) drawFraming2D();
+  if(document.getElementById('showFootings').checked) drawFootingPlan();
   const U2=unionMetrics(state.sections);
   drawDims(U2);
   // house wall + sliding door (2D, architectural symbol just outside the ledger edge)
@@ -943,12 +1015,15 @@ function draw3D(){
   ctx.clearRect(0,0,cv.width,cv.height);
   const grad=ctx.createLinearGradient(0,0,0,cv.height); grad.addColorStop(0,'#0c1216'); grad.addColorStop(1,'#0a0d10');
   ctx.fillStyle=grad; ctx.fillRect(0,0,cv.width,cv.height);
-  const H=Math.max(0.6,parseFloat(g('deckHeight').value)||0.6), th=0.75;
+  const globalH=Math.max(0.6,parseFloat(g('deckHeight').value)||0.6), th=0.75;
+  const secHt3=s=>Math.max(0.6,secH(s));                      // per-section height (multi-level)
+  const Hmax=Math.max(globalH,...state.sections.map(secHt3)), Hmin=Math.min(globalH,...state.sections.map(secHt3));
   const comp=state.material==='comp';
   const face=(findProfile(state.profile)||{face:5.5}).face;
   const gap=parseFloat(g('gap').value)||0, step=(face+gap)/12;
   const hasRail=g('hasRail').checked, railStyle=g('railStyle').value;
-  const railH=hasRail?(H>5.9?3.5:3):0;                       // 42″ guard on tall decks, else 36″
+  const railOf=h=>hasRail?(h>5.9?3.5:3):0;                    // 42″ guard on tall decks, else 36″
+  const railHmax=railOf(Hmax);
   const attached=g('attached').checked, hasBorder=g('hasBorder').checked;
   const hasHouse=g('hasHouse').checked, showFraming=g('showFraming').checked;
   const railOn={N:g('railN').checked,S:g('railS').checked,E:g('railE').checked,W:g('railW').checked};
@@ -960,7 +1035,7 @@ function draw3D(){
   const cy=(Math.min(...state.sections.map(s=>s.y))+Math.max(...state.sections.map(s=>s.y+s.h)))/2;
   const ca=Math.cos(az3d), sa=Math.sin(az3d), se=Math.sin(el3d), ce=Math.cos(el3d);
   const pr=(x,y,z)=>{const X=x-cx,Y=y-cy;const rx=X*ca-Y*sa,ry=X*sa+Y*ca;return{x:rx,y:ry*se-z*ce};};
-  let pts=[]; state.sections.forEach(s=>[[0,0],[s.w,0],[s.w,s.h],[0,s.h]].forEach(([dx,dy])=>{pts.push(pr(s.x+dx,s.y+dy,0));pts.push(pr(s.x+dx,s.y+dy,H+railH));}));
+  let pts=[]; state.sections.forEach(s=>{const hs=secHt3(s)+railOf(secHt3(s)); [[0,0],[s.w,0],[s.w,s.h],[0,s.h]].forEach(([dx,dy])=>{pts.push(pr(s.x+dx,s.y+dy,0));pts.push(pr(s.x+dx,s.y+dy,hs));});});
   const minx=Math.min(...pts.map(p=>p.x)),maxx=Math.max(...pts.map(p=>p.x)),miny=Math.min(...pts.map(p=>p.y)),maxy=Math.max(...pts.map(p=>p.y));
   const pad=58, fit=Math.min((cv.width-2*pad)/((maxx-minx)||1),(cv.height-2*pad)/((maxy-miny)||1));
   const sc=fit*zoom3d, ox=(cv.width-(maxx-minx)*sc)/2-minx*sc, oy=(cv.height-(maxy-miny)*sc)/2-miny*sc;
@@ -984,6 +1059,7 @@ function draw3D(){
   const order=[...state.sections].sort((a,b)=>(a.x+a.y)-(b.x+b.y));
   order.forEach(s=>{
     const x0=s.x,y0=s.y,x1=s.x+s.w,y1=s.y+s.h;
+    const H=secHt3(s), railH=railOf(H);                    // this level's height + guard height
     // posts on concrete footings
     const inset=0.5, pw=0.5, ftg=0.45;
     [[x0+inset,y0+inset],[x1-inset-pw,y0+inset],[x0+inset,y1-inset-pw],[x1-inset-pw,y1-inset-pw]].forEach(([pxx,pyy])=>{
@@ -1091,7 +1167,10 @@ function draw3D(){
   }
   // house wall + sliding patio door (3D) — starts at deck level so it never covers the deck
   if(hasHouse){
-    const {x0,x1}=houseSpan(pB), wy=pB.minY, t=0.5, base=H, top=H+8;
+    // door sits at the height of the deck level touching the house
+    const houseSecs=state.sections.filter(s=>Math.abs(s.y-pB.minY)<0.02);
+    const base=Math.max(0.6,...(houseSecs.length?houseSecs:state.sections).map(secHt3)), top=base+8;
+    const {x0,x1}=houseSpan(pB), wy=pB.minY, t=0.5;
     const gq=(pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((p,i)=>{const q=P(p[0],p[1],p[2]);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}};
     gq([[x0,wy,base],[x0,wy-t,base],[x0,wy-t,top],[x0,wy,top]],'#8f95a0','#5c626b',1);      // left return
     gq([[x1,wy,base],[x1,wy-t,base],[x1,wy-t,top],[x1,wy,top]],'#7f858f','#5c626b',1);      // right return
@@ -1115,7 +1194,8 @@ function draw3D(){
     const lbl=P(dcx,wy,top+0.5); ctx.fillStyle='#aeb9c3';ctx.font='700 11px system-ui';ctx.textAlign='center';ctx.fillText('🏠 House',...lbl);
   }
   // legend
-  document.getElementById('cvLegend').innerHTML=`3D preview · ${state.material==='comp'?'composite':'wood'} · ${H}′ high${hasRail?' · railing':''}${hasBorder?' · border':''}${hasHouse?' · house':''}${showFraming?' · <span style="color:#c56a1c">framing (x-ray)</span>':''} <span style="color:var(--muted2)">· drag to orbit</span>`;
+  const htLegend=(Hmax-Hmin>0.05)?`${fmtLen(Hmin)}–${fmtLen(Hmax)} multi-level`:`${fmtLen(Hmax)} high`;
+  document.getElementById('cvLegend').innerHTML=`3D preview · ${state.material==='comp'?'composite':'wood'} · ${htLegend}${hasRail?' · railing':''}${hasBorder?' · border':''}${hasHouse?' · house':''}${showFraming?' · <span style="color:#c56a1c">framing (x-ray)</span>':''} <span style="color:var(--muted2)">· drag to orbit</span>`;
 }
 /* dimensioned side SECTION / elevation — good for a permit sketch (height, posts, footings, frost line) */
 function drawElevation(){
@@ -1218,9 +1298,22 @@ function resizeSection(s,h,pt){ let x0=s.x,y0=s.y,x1=s.x+s.w,y1=s.y+s.h;
 function stairHit(pt){ const st=getStairGeom(boundsFt()); if(!st)return false; const {sx,sy,along,out,stairW,treads,run}=st,d=Math.max(0.8,treads*run);
   const poly=[[sx,sy],[sx+along[0]*stairW,sy+along[1]*stairW],[sx+along[0]*stairW+out[0]*d,sy+along[1]*stairW+out[1]*d],[sx+out[0]*d,sy+out[1]*d]];
   return pointInPoly(pt.x,pt.y,poly); }
-function dragStairTo(pt){ const b=boundsFt(), dN=Math.abs(pt.y-b.minY),dS=Math.abs(pt.y-b.maxY),dW=Math.abs(pt.x-b.minX),dE=Math.abs(pt.x-b.maxX),m=Math.min(dN,dS,dW,dE);
-  let side,pos; if(m===dS){side='S';pos=(pt.x-b.minX)/((b.maxX-b.minX)||1);} else if(m===dN){side='N';pos=(pt.x-b.minX)/((b.maxX-b.minX)||1);} else if(m===dE){side='E';pos=(pt.y-b.minY)/((b.maxY-b.minY)||1);} else {side='W';pos=(pt.y-b.minY)/((b.maxY-b.minY)||1);}
-  pos=Math.max(0,Math.min(1,pos)); document.getElementById('stairSide').value=side; const pv=Math.round(pos*100); document.getElementById('stairPos').value=pv; document.getElementById('stairPosVal').textContent=pv; }
+function dragStairTo(pt){
+  const b=boundsFt(), dN=Math.abs(pt.y-b.minY),dS=Math.abs(pt.y-b.maxY),dW=Math.abs(pt.x-b.minX),dE=Math.abs(pt.x-b.maxX),m=Math.min(dN,dS,dW,dE);
+  const stairW=parseFloat(document.getElementById('stairWidth').value)||4, half=stairW/2;
+  // pick the nearest edge, then drive the stair CENTRE along it — snapped to the grid and clamped on-edge
+  let side,coord,origin,len;
+  if(m===dS){side='S';coord=pt.x;origin=b.minX;len=b.maxX-b.minX;}
+  else if(m===dN){side='N';coord=pt.x;origin=b.minX;len=b.maxX-b.minX;}
+  else if(m===dE){side='E';coord=pt.y;origin=b.minY;len=b.maxY-b.minY;}
+  else {side='W';coord=pt.y;origin=b.minY;len=b.maxY-b.minY;}
+  coord=snapFt(coord);                                                   // snap centre to the snap increment
+  const lo=origin+(len>stairW?half:len/2), hi=origin+len-(len>stairW?half:len/2);
+  coord=Math.max(lo,Math.min(hi,coord));                                 // keep stairs fully on the edge
+  const pos=len>0?Math.max(0,Math.min(1,(coord-origin)/len)):0.5;
+  document.getElementById('stairSide').value=side;
+  const pv=Math.round(pos*100); document.getElementById('stairPos').value=pv; document.getElementById('stairPosVal').textContent=pv;
+}
 
 function evtPx(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height)}; }
 function pointInPoly(px,py,poly){ let inside=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1]; if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside; } return inside; }
@@ -1232,6 +1325,7 @@ function updateSelEditor(){
   document.getElementById('seSwatch').style.background=SECTION_COLORS[i%SECTION_COLORS.length];
   document.getElementById('seNum').textContent=i+1;
   document.getElementById('seW').value=s.w; document.getElementById('seH').value=s.h;
+  const seZ=document.getElementById('seZ'); if(seZ){ seZ.value=s.z!=null?s.z:''; seZ.placeholder=(parseFloat(document.getElementById('deckHeight').value)||0)+' (default)'; }
   box.classList.add('show');
 }
 
@@ -1304,6 +1398,7 @@ document.addEventListener('keydown',e=>{
 });
 document.getElementById('seW').addEventListener('input',e=>{ const s=state.sections.find(x=>x.id===selId); if(s){s.w=Math.max(1,parseFloat(e.target.value)||1); renderSectionList(); draw(); recalc();} });
 document.getElementById('seH').addEventListener('input',e=>{ const s=state.sections.find(x=>x.id===selId); if(s){s.h=Math.max(1,parseFloat(e.target.value)||1); renderSectionList(); draw(); recalc();} });
+document.getElementById('seZ').addEventListener('input',e=>{ const s=state.sections.find(x=>x.id===selId); if(s){ if(e.target.value===''||isNaN(parseFloat(e.target.value)))delete s.z; else s.z=Math.max(0,parseFloat(e.target.value)); renderSectionList(); draw(); recalc();} });
 document.getElementById('seDel').addEventListener('click',()=>{ if(selId!=null)delSection(selId); });
 document.getElementById('seDup').addEventListener('click',()=>{ const s=state.sections.find(x=>x.id===selId); if(s){ const n={id:nextId++,x:s.x+2,y:s.y+2,w:s.w,h:s.h}; state.sections.push(n); selId=n.id; renderSectionList(); updateSelEditor(); draw(); recalc(); } });
 
@@ -1359,6 +1454,7 @@ function computeBOQ(){
   const diagonal=g('diagonal').checked, diagMul=diagonal?1.15:1;   // 45° decking ~15% more board
   const joistSizePref=g('joistSize').value, beamSizePref=g('beamSize').value;
   const frostDepth=parseFloat(g('frostDepth').value)||4.5, footingDia=parseFloat(g('footingDia').value)||8;
+  const hasCant=g('cantilever').checked;
 
   const U=unionMetrics(state.sections);
   const sumArea=state.sections.reduce((a,s)=>a+s.w*s.h,0);
@@ -1366,7 +1462,8 @@ function computeBOQ(){
   const exposed=attached?Math.max(0,U.perimeter-U.topEdge):U.perimeter;
 
   // ---------- per-section framing + field decking (whole-board row method) ----------
-  let fieldBoards=0, joistCount=0, postCount=0, maxSpan=0, effSpanMax=0, beamLinesTot=0, beamWarn=false, spanFail=false, postSpacingEff=postSpacing;
+  let fieldBoards=0, joistCount=0, postCount=0, postBoards=0, maxSpan=0, effSpanMax=0, beamLinesTot=0, beamWarn=false, spanFail=false, postSpacingEff=postSpacing, cantMax=0;
+  let hMin=Infinity, hMax=0, hAreaSum=0, areaSum=0;
   const joistBySize={}, rimBySize={}, blockBySize={}, beamByKey={};   // linear feet buckets
   const bump=(m,k,v)=>m[k]=(m[k]||0)+v;
   const heavier=(a,b)=>JOIST_ORDER.indexOf(a)>=JOIST_ORDER.indexOf(b)?a:b;
@@ -1376,6 +1473,8 @@ function computeBOQ(){
   state.sections.forEach((s,idx)=>{
     const across=state.dir==='length'?s.w:s.h;   // joist length / rows dimension
     const runLen=state.dir==='length'?s.h:s.w;    // board length / beam length dimension
+    const secHt=secH(s), secA=s.w*s.h;            // per-section height (multi-level)
+    hMin=Math.min(hMin,secHt); hMax=Math.max(hMax,secHt); hAreaSum+=secHt*secA; areaSum+=secA;
     const fAcross=Math.max(0,across-2*borderW), fRun=Math.max(0,runLen-2*borderW);
     if(fAcross>0&&fRun>0){
       const rows=Math.ceil(fAcross/faceFt), perRow=Math.ceil(fRun/boardLen);
@@ -1385,21 +1484,26 @@ function computeBOQ(){
       offcutLf+=rows*offRow;
       cutList.push({sec:idx+1,w:s.w,h:s.h,rows,perRow,boardLen,cutTo,offRow,run:+fRun.toFixed(1)});
     }
+    // ---- cantilever budget: joists overhang the outer beam, shortening the supported back-span ----
+    let cant=0;
+    if(hasCant){ const j0=(joistSizePref==='auto'?(pickJoist(across,joistOCin)||'2x12'):joistSizePref);
+      cant=Math.min(CANT_MAX[j0]||2.0, across*0.25); cantMax=Math.max(cantMax,cant); }
+    const supported=Math.max(1, across-(attached?cant:2*cant));            // span carried by joists
     // ---- joist size + number of support bays so per-bay span fits the joist ----
     let bays=1, jsize;
     if(joistSizePref==='auto'){
-      jsize=null; while(bays<=8){ jsize=pickJoist(across/bays,joistOCin); if(jsize)break; bays++; }
+      jsize=null; while(bays<=8){ jsize=pickJoist(supported/bays,joistOCin); if(jsize)break; bays++; }
       if(!jsize){ jsize='2x12'; spanFail=true; }
     } else {
-      jsize=joistSizePref; const allow=JOIST_SPANS[jsize][joistOCin]||10; bays=Math.max(1,Math.ceil(across/allow));
-      if(across/bays>allow+0.01) spanFail=true;
+      jsize=joistSizePref; const allow=JOIST_SPANS[jsize][joistOCin]||10; bays=Math.max(1,Math.ceil(supported/allow));
+      if(supported/bays>allow+0.01) spanFail=true;
     }
-    const effSpan=across/bays;
+    const effSpan=supported/bays;
     maxSpan=Math.max(maxSpan,across); effSpanMax=Math.max(effSpanMax,effSpan);
     joistSizeUsed=heavier(joistSizeUsed,jsize);
     const nJoist=Math.floor(runLen/joistOC)+1;
     joistCount+=nJoist;
-    bump(joistBySize,jsize,nJoist*across);                                   // field joists
+    bump(joistBySize,jsize,nJoist*across);                                   // field joists (full length incl. overhang)
     bump(rimBySize,jsize,2*(s.w+s.h));                                       // rim = joist depth
     bump(blockBySize,jsize,Math.max(0,Math.round(across/6.5)-1)*(nJoist-1)*joistOC);
     // ---- beams: attached needs `bays` beams (+ ledger); freestanding needs bays+1 ----
@@ -1410,9 +1514,13 @@ function computeBOQ(){
     const effPS=Math.min(postSpacing,allowPS); postSpacingEff=Math.min(postSpacingEff,effPS);
     beamUsed={size:heavierB(beamUsed.size,bm.size),ply:Math.max(beamUsed.ply,bm.ply)};
     bump(beamByKey,bm.size+'|'+bm.ply,nBeam*runLen*bm.ply);                  // ply-count of stock
-    postCount+=nBeam*Math.max(2,Math.floor(runLen/effPS)+1);
+    const nPostSec=nBeam*Math.max(2,Math.floor(runLen/effPS)+1);
+    postCount+=nPostSec;
+    postBoards+=nPostSec*Math.max(1,Math.ceil((secHt+2)/8));                  // 6x6 stock, per this level's height
   });
   const joistSpanMax=JOIST_SPANS[joistSizeUsed][joistOCin]||10;
+  const avgH=areaSum>0?hAreaSum/areaSum:height, multiLevel=(hMax-hMin>0.05);
+  if(hMin===Infinity)hMin=height;
 
   // ---------- DECKING ----------
   const deckBoards=Math.ceil(fieldBoards*waste*diagMul);
@@ -1434,7 +1542,8 @@ function computeBOQ(){
   Object.entries(rimBySize).forEach(([sz,lf])=>{ if(lf>0) add(`Rim / perimeter joists (${sz})`, Math.ceil(lf*1.05/boardLen),JOIST_PRICE[sz],'framing','wood',`${Math.round(lf)} lf`); });
 
   // ---------- FOOTINGS & POSTS ----------
-  add('Posts (6x6)', postCount*Math.max(1,Math.ceil((height+2)/8)),'post_6x6','footing','wood',`${postCount} posts · ${fmtLen(height)} above grade · beams @ ~${fmtLen(postSpacingEff)}`);
+  const heightNote=multiLevel?`${fmtLen(hMin)}–${fmtLen(hMax)} (multi-level)`:`${fmtLen(hMax)} above grade`;
+  add('Posts (6x6)', postBoards,'post_6x6','footing','wood',`${postCount} posts · ${heightNote} · beams @ ~${fmtLen(postSpacingEff)}${cantMax>0?` · ${fmtLen(cantMax)} cantilever`:''}`);
   add('Post bases / brackets', postCount,'post_base','footing','wood');
   if(footing==='sonotube'){
     const tubeKey=footingDia>=12?'sonotube_12':footingDia>=10?'sonotube_10':'sonotube';
@@ -1487,7 +1596,7 @@ function computeBOQ(){
 
   // ---------- FASCIA / SKIRTING / FINISH ----------
   if(g('hasFascia').checked) add('Fascia board (1x8)', Math.ceil(exposed*waste/boardLen),'fascia_board','fascia','wood',`${exposed.toFixed(0)} lf`);
-  if(g('hasSkirting').checked) add('Skirting / lattice', Math.ceil(exposed*height/P.lattice.coversSqft),'lattice','fascia','wood',`${(exposed*height).toFixed(0)} ft² wrap`);
+  if(g('hasSkirting').checked) add('Skirting / lattice', Math.ceil(exposed*avgH/P.lattice.coversSqft),'lattice','fascia','wood',`${(exposed*avgH).toFixed(0)} ft² wrap`);
   if(!comp) add('Wood stain / sealant', Math.max(1,Math.ceil(U.area*2/350)),'sealant','fascia','wood','2 coats · ~350 ft²/gal/coat');
 
   const deckLf=deckBoards*boardLen, wastePct=deckLf>0?offcutLf/deckLf*100:0;
@@ -1507,6 +1616,7 @@ function computeBOQ(){
   if(permit>0)addons.push({name:'Permit fee',note:'municipal · not taxed',total:permit,noTax:true});
 
   return {items, area:U.area, perimeter:U.perimeter, exposed, sides:U.sides, deckBoards, joistCount, postCount, beamLines:beamLinesTot, boardLen, stairInfo, stairSide, overlap, sumArea, maxSpan, effSpanMax, joistSpanMax, joistSizeUsed, beamUsed, beamWarn, spanFail, postSpacingEff, diagonal, cutList, offcutLf, wastePct, borderRows, faceIn:prof.face, suggest,
+    hMin, hMax, avgH, multiLevel, cantMax, hasCant, frostDepth,
     matSubtotal, addons, laborTotal, permit, delivery, contingency};
 }
 
@@ -1574,8 +1684,10 @@ function recalc(){
     `<div class="banner" style="background:#16242c;border-color:#274049;color:#bcd4de"><span class="ic">🧱</span><div>
       <b>Suggested bottom framing:</b> <b>${r.joistSizeUsed}</b> joists @ ${document.getElementById('joistOC').value}″ O.C. running ${joistDir}; longest bay <b>${r.effSpanMax.toFixed(1)}′</b> of ${r.joistSpanMax.toFixed(1)}′ allowed ${spanOK?'✅':'— <b style="color:#ffb454">still over: pick a deeper joist or tighter spacing</b>'}. Built-up <b>${beamTxt}</b> beam × ${r.beamLines} on 6×6 posts @ <b>${fmtLen(r.postSpacingEff)}</b>${psWarn?' <span style="color:#ffb454">(tightened from your setting so the beam carries the load)</span>':''} → ${r.postCount} footing(s)${attached?', ledger on the house side':' (freestanding — beam each end)'}.
       ${r.beamWarn?'<b style="color:#ffb454"> Chosen beam can\'t span your post spacing — add posts or a deeper beam.</b>':''}
+      ${r.cantMax>0?` Joists cantilever <b>${fmtLen(r.cantMax)}</b> past the outer beam.`:''}
+      ${r.multiLevel?` <b>Multi-level:</b> heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}; posts sized per level.`:''}
       ${r.stairInfo?`Stairs: ${r.stairInfo.risers} risers / ${r.stairInfo.treads} treads.`:''}
-      <span style="color:#7fb0c4">Toggle <b>🧱 Framing</b> above the plan to see it drawn.</span>
+      <span style="color:#7fb0c4">Toggle <b>🧱 Framing</b> / <b>📍 Footing plan</b> above the plan to see it drawn.</span>
     </div></div>`;
 
   document.getElementById('codeNote').innerHTML=codeCheck(r);
@@ -1620,7 +1732,7 @@ function collectInputs(){
     railStyle:g('railStyle').value, hasBorder:g('hasBorder').checked, borderRows:g('borderRows').value, view3d,
     hasHouse:g('hasHouse').checked, hasDrainage:g('hasDrainage').checked, stairSide:g('stairSide').value, stairPos:g('stairPos').value,
     railN:g('railN').checked, railS:g('railS').checked, railE:g('railE').checked, railW:g('railW').checked,
-    showFraming:g('showFraming').checked,
+    showFraming:g('showFraming').checked, showFootings:g('showFootings').checked, cantilever:g('cantilever').checked,
     joistSize:g('joistSize').value, beamSize:g('beamSize').value, footingDia:g('footingDia').value, frostDepth:g('frostDepth').value,
     diagonal:g('diagonal').checked, labor:g('labor').value, contingency:g('contingency').value, permitFee:g('permitFee').value, delivery:g('delivery').value,
     metric };
@@ -1634,11 +1746,11 @@ function applyInputs(d){
   if(d.profile){document.getElementById('boardProfile').value=d.profile;state.profile=d.profile;}
   setDir(state.dir);
   ['boardLen','gap','waste','packSize','joistOC','deckHeight','postSpacing','footing','stairWidth','riserH','store','scale','railStyle','borderRows','stairSide','stairPos','joistSize','beamSize','footingDia','frostDepth','labor','contingency','permitFee','delivery'].forEach(k=>{if(d[k]!=null)document.getElementById(k).value=d[k];});
-  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming','diagonal'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
+  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming','showFootings','cantilever','diagonal'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
   metric=!!d.metric; document.getElementById('unitsBtn').textContent='⇄ '+(metric?'m':'ft');
   document.getElementById('packWrap').style.display=state.material==='comp'?'block':'none';
   document.getElementById('borderRowWrap').style.display=document.getElementById('hasBorder').checked?'flex':'none';
-  document.getElementById('footingSpecRow').style.display=document.getElementById('footing').value==='block'?'none':'flex';
+  updateFootingVis();
   document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
   if(d.view3d)setView('3d');
   document.getElementById('wasteVal').textContent=document.getElementById('waste').value;
@@ -1744,7 +1856,7 @@ function generateProposal(){
         <div class="card"><div class="k">Decking boards</div><div class="v">${r.deckBoards} × ${r.boardLen}′</div></div>
         <div class="card"><div class="k">Framing</div><div class="v">${r.joistSizeUsed} @ ${g('joistOC').value}″ · ${r.beamUsed.size} ${r.beamUsed.ply}-ply beam ×${r.beamLines}</div></div>
         <div class="card"><div class="k">Footings</div><div class="v">${r.postCount}</div></div>
-        <div class="card"><div class="k">Height</div><div class="v">${g('deckHeight').value} ft</div></div>
+        <div class="card"><div class="k">Height</div><div class="v">${r.multiLevel?`${fmtLen(r.hMin)}–${fmtLen(r.hMax)}`:fmtLen(r.hMax)}</div></div>
         ${r.stairInfo?`<div class="card"><div class="k">Stairs</div><div class="v">${r.stairInfo.risers} risers · ${r.stairInfo.treads} treads</div></div>`:'<div class="card"><div class="k">Stairs</div><div class="v">—</div></div>'}
         <div class="card"><div class="k">Railing (exposed)</div><div class="v">${r.exposed.toFixed(0)} ft</div></div>
       </div>
@@ -1930,24 +2042,36 @@ function newDesign(){
 function codeCheck(r){
   const g=id=>document.getElementById(id), rows=[];
   const li=(ok,txt)=>rows.push(`<div class="cc ${ok===true?'ok':ok===false?'bad':'info'}">${ok===true?'✅':ok===false?'⚠️':'ℹ️'} ${txt}</div>`);
-  const heightFt=parseFloat(g('deckHeight').value)||0;
+  const heightFt=r.hMax||parseFloat(g('deckHeight').value)||0;
+  if(r.multiLevel) li('info',`Multi-level deck — heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}. Each level's guard/stairs are checked against its own height; transition steps between levels are added manually.`);
   // Guardrails — CNB/Québec: guard required when walking surface > 600 mm (~24″) above grade
   if(heightFt>2){
     const tall=heightFt>5.9, needH=tall?42:36;
-    li(g('hasRail').checked, `Guardrail <b>required</b> — surface ${heightFt}′ (&gt; 2′ / 600 mm) above grade. Min height <b>${needH}″</b> (${tall?'1070':'900'} mm).${g('hasRail').checked?'':' <b>Railing is currently OFF.</b>'}`);
+    li(g('hasRail').checked, `Guardrail <b>required</b> — highest surface ${fmtLen(heightFt)} (&gt; 600 mm) above grade. Min height <b>${needH}″</b> (${tall?'1070':'900'} mm).${g('hasRail').checked?'':' <b>Railing is currently OFF.</b>'}`);
     li('info','Guard openings must reject a <b>4″ (100 mm) sphere</b> — keep baluster gaps ≤ 4″.');
   } else {
-    li('info','No guardrail required by code (surface ≤ 2′ / 600 mm above grade) — optional.');
+    li('info','No guardrail required by code (surface ≤ 600 mm above grade) — optional.');
   }
-  // Stairs — max riser 200 mm, min run 255 mm, handrail at 3+ risers
+  // Lateral load — attached decks need tension hold-down devices (DCA6 / CNB)
+  if(g('attached').checked){
+    li(false, `Attached decks need <b>lateral-load connectors</b> (min 2 hold-down tension devices, ≈9 kN each) tying deck joists into the house framing — the ledger + screws alone don't resist pull-off.`);
+  }
+  // Tall posts — need bracing above ~2 m
+  if(heightFt>6) li(false, `Posts over ~6′ (2 m) tall — add <b>diagonal / knee bracing</b> (or engineered posts) for lateral stability; a ${fmtLen(heightFt)} deck is at/above that.`);
+  else if(heightFt>4) li('info','Posts 4–6′ tall benefit from knee bracing at the beam-to-post joints for sway resistance.');
+  // Stairs — max riser 200 mm, min run 255 mm, handrail at 3+ risers, guard on open sides
   if(g('hasStairs').checked && r.stairInfo){
     const riser=parseFloat(g('riserH').value)||0;
     li(riser<=7.875&&riser>=5, `Stair risers <b>${riser}″</b> — code range 5″–<b>7-7/8″ (200 mm)</b>; ${r.stairInfo.risers} risers, ${r.stairInfo.treads} treads.`);
-    li('info','Min tread run <b>10″ (255 mm)</b>; a <b>handrail</b> (34″–38″) is required on stairs with 3+ risers.');
+    li('info','Min tread run <b>10″ (255 mm)</b>; a graspable <b>handrail</b> (865–965 mm) is required at <b>3+ risers</b>.');
+    if(r.stairInfo.treads>=2) li('info','Stair flights more than 600 mm above grade also need a <b>guard</b> on the open side(s), not just a handrail.');
   }
   // Footings / frost
   const block=g('footing').value==='block';
-  li(!block||heightFt<=1, `Footings must bear <b>below the frost line</b> — typically <b>1.2–1.5 m (4–5 ft)</b> in Québec (varies by municipality). ${block?'Deck blocks sit on grade → floating/ground-level decks only, not frost-protected.':'Sonotubes must reach frost depth.'}`);
+  const frost=r.frostDepth||parseFloat(g('frostDepth').value)||4.5;
+  li(!block||heightFt<=1, `Footings must bear <b>below the frost line</b> — set to <b>${fmtLen(frost)}</b> here (Québec ≈ 1.2–1.8 m; varies by municipality). ${block?'Deck blocks sit on grade → floating/ground-level decks only, not frost-protected.':'Sonotubes must reach that depth.'}`);
+  // Cantilever
+  if(r.cantMax>0) li('info',`Joist cantilever <b>${fmtLen(r.cantMax)}</b> past the outer beam — code allows overhang up to ¼ of the back-span; keep it within the joist-size limit.`);
   // Joist span (per bay — beams break the run into bays)
   li(r.effSpanMax<=r.joistSpanMax+0.01 && !r.spanFail, `Longest joist bay <b>${r.effSpanMax.toFixed(1)}′</b> vs <b>${r.joistSpanMax.toFixed(1)}′</b> max for <b>${r.joistSizeUsed}</b> @ ${g('joistOC').value}″ O.C.${r.spanFail?' — deepen joists or add a beam.':''}`);
   // Ledger
@@ -2017,7 +2141,7 @@ function renderSaves(){
   document.getElementById(id).addEventListener('input',()=>{
     if(id==='boardProfile')state.profile=document.getElementById(id).value;
     if(id==='hasBorder')document.getElementById('borderRowWrap').style.display=document.getElementById('hasBorder').checked?'flex':'none';
-    if(id==='footing')document.getElementById('footingSpecRow').style.display=document.getElementById('footing').value==='block'?'none':'flex';
+    if(id==='footing')updateFootingVis();
     if(id==='stairPos')document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
     draw(); recalc();
   });
@@ -2025,11 +2149,13 @@ function renderSaves(){
 document.getElementById('waste').addEventListener('input',e=>{document.getElementById('wasteVal').textContent=e.target.value;recalc();});
 document.getElementById('scale').addEventListener('input',draw);
 document.getElementById('showFraming').addEventListener('change',draw);
+document.getElementById('showFootings').addEventListener('change',draw);
+document.getElementById('cantilever').addEventListener('change',()=>{draw();recalc();});
 document.getElementById('snap').addEventListener('input',()=>{});
 document.getElementById('photoOp').addEventListener('input',draw);
 
 (function init(){
-  buildProfileOptions(); renderSectionList(); renderPriceEditor();
+  buildProfileOptions(); buildFrostZones(); updateFootingVis(); renderSectionList(); renderPriceEditor();
   let loaded=false;
   const shared=decodeShare();                                  // 1) a shared #d= link wins
   if(shared){ try{ applyInputs(shared); loaded=true; setTimeout(()=>toast('Loaded shared design'),300); }catch(e){} }
