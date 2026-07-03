@@ -48,6 +48,9 @@ framing, stairs, railing, fasteners, footings), and estimate cost with Quebec ta
 - **🏛 Permit sheet** — a print-ready drawing set: dimensioned plan + side section, a **footing
   schedule** (X/Y from the house corner, size, depth), a project-data spec table, and a Québec/CNB
   code-compliance summary.
+- **🌐 EN / FR** — toggle the language of the generated **proposal + permit sheet** (labels, tables,
+  code summary, TPS/TVQ, dates, currency) for the client or the municipality. The app UI stays English;
+  material line-item names stay as-is.
 - **🔩 Beam & post assembly guide** — build steps, ply fastening (2-ply nails vs 3-ply bolts),
   splice/crown rules, post-cap detail and joist ties, generated from the design's own numbers.
 

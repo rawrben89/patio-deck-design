@@ -218,6 +218,7 @@
   </div>
   <div class="actions no-print">
     <button class="small ghost" id="unitsBtn" onclick="toggleUnits()" title="Toggle feet / metric">⇄ ft</button>
+    <button class="small ghost" id="docLangBtn" onclick="toggleDocLang()" title="Language for the proposal / permit documents">🌐 EN</button>
     <button class="small ghost" onclick="openCompare()" title="Wood vs composite">⚖ Compare</button>
     <button class="small ghost" onclick="openAI()">🤖 AI auto-fill</button>
     <button class="small primary" onclick="generateProposal()">📋 Proposal / PDF</button>
@@ -772,6 +773,54 @@ let metric=false;
 const fmtLen=v=> metric ? (v*0.3048).toFixed(2)+' m' : fmtFt(v);       // units-aware length
 const fmtArea=v=> metric ? (v*0.092903).toFixed(1)+' m²' : v.toFixed(0)+' ft²';
 function toggleUnits(){ metric=!metric; document.getElementById('unitsBtn').textContent='⇄ '+(metric?'m':'ft'); draw(); recalc(); persist(); }
+
+/* ---- document language (proposal + permit only; app UI stays English) ---- */
+let docLang='en';
+function toggleDocLang(){ docLang=docLang==='en'?'fr':'en'; document.getElementById('docLangBtn').textContent='🌐 '+docLang.toUpperCase(); persist(); toast(docLang==='fr'?'Documents en français':'Documents in English'); }
+const DOC_T={
+  en:{ propTitle:'Deck Proposal', propHead:'Patio Deck Proposal', backyard:'Backyard patio deck', prepared:'Prepared', qcPricing:'Quebec pricing', estTotal:'Estimated total', taxesIn:'taxes in', perArea:'/'+'',
+    deckArea:'Deck area', footprint:'Footprint', deckMat:'Decking material', deckBoards:'Decking boards', framing:'Framing', footings:'Footings', height:'Height', stairs:'Stairs', railingExp:'Railing (exposed)', none:'—',
+    planView:'Plan view', view3d:'3D preview', section:'Side section — height, posts &amp; footings',
+    matBreakdown:'Materials & cost breakdown', item:'Item', qty:'Qty', unitPrice:'Unit price', amount:'Amount',
+    materials:'Materials', total:'Total', permitNoTax:'Permit (no tax)',
+    cutList:'Board cut list & offcuts', secCol:'Section', rows:'Rows', boardsPerRow:'Boards / row', cutLen:'Cut length', offcut:'Offcut / row',
+    totOffcut:'Total decking offcut', waste:'waste', suggLen:'Suggested board length',
+    preparedBy:'Prepared by', acceptedBy:'Accepted by · date',
+    propDisc:'<b>Estimate only — not engineered plans.</b> Quantities & prices are approximate and change daily; confirm current pricing and stock. Verify joist/beam spans, footing depth (frost line ≈ 1.5 m in Quebec), ledger attachment, and stair/railing geometry against the Quebec Construction Code & RBQ, and obtain the required permit before construction.',
+    // permit
+    permTitle:'Deck Permit Sheet', permHead:'Deck — Permit Drawing Set', residential:'Residential patio deck', sheet1:'Sheet 1 of 1', notToScale:'Not to scale · dimensions govern',
+    capPlan:'Plan — footing layout dimensioned from house-side corner (⌂ 0,0)', capSection:'Side section — height, posts, footings, frost line',
+    projData:'Project data', heightGrade:'Height above grade', decking:'Decking', joists:'Joists', beam:'Beam', posts:'Posts', attachment:'Attachment',
+    attached:'Attached — ledger + flashing + lateral hold-downs', freestanding:'Freestanding', multiLevel:'multi-level', deckBlocks:'Deck blocks (on grade)', onGrade:'on grade', deckBlock:'deck block', bagsEach:'bags concrete each', diag:'45° diagonal', risers:'risers', treads:'treads', wide:'wide', bay:'bay span', max:'max',
+    footSched:'Footing schedule', footFrom:'footings · X,Y from house-side corner', tag:'Tag', size:'Size', depth:'Depth',
+    codeSummary:'Code compliance summary', codeVerify:'(Québec / CNB — verify with your municipality)',
+    preparedApplicant:'Prepared / applicant', reviewedDate:'Reviewed · date',
+    permDisc:'<b>Estimator output — not stamped engineered drawings.</b> Spans, beam/footing sizes and stair/guard geometry are conservative estimates; a permit reviewer or engineer must confirm them against the Code de construction du Québec / RBQ. Verify frost depth and setbacks with your municipality before excavation.',
+    addon:{Labour:'Labour',Delivery:'Delivery','Permit fee':'Permit fee'}, contingency:'Contingency' },
+  fr:{ propTitle:'Soumission — Terrasse', propHead:'Soumission de terrasse', backyard:'Terrasse de cour arrière', prepared:'Préparée le', qcPricing:'Prix Québec', estTotal:'Total estimé', taxesIn:'taxes incluses', perArea:'/',
+    deckArea:'Superficie', footprint:'Empreinte', deckMat:'Matériau de surface', deckBoards:'Planches de surface', framing:'Structure', footings:'Fondations', height:'Hauteur', stairs:'Escalier', railingExp:'Garde-corps (exposé)', none:'—',
+    planView:'Vue en plan', view3d:'Aperçu 3D', section:'Coupe — hauteur, poteaux et fondations',
+    matBreakdown:'Matériaux & coûts', item:'Article', qty:'Qté', unitPrice:'Prix unitaire', amount:'Montant',
+    materials:'Matériaux', total:'Total', permitNoTax:'Permis (non taxé)',
+    cutList:'Liste de coupe & chutes', secCol:'Section', rows:'Rangées', boardsPerRow:'Planches / rangée', cutLen:'Longueur coupée', offcut:'Chute / rangée',
+    totOffcut:'Chute totale de surface', waste:'perte', suggLen:'Longueur suggérée',
+    preparedBy:'Préparée par', acceptedBy:'Acceptée par · date',
+    propDisc:'<b>Estimation seulement — non des plans d’ingénieur.</b> Les quantités et prix sont approximatifs et varient; confirmez les prix et la disponibilité. Vérifiez les portées de solives/poutres, la profondeur des fondations (ligne de gel ≈ 1,5 m au Québec), la fixation de la lisse et la géométrie escalier/garde-corps selon le Code de construction du Québec et la RBQ, et obtenez le permis requis avant les travaux.',
+    permTitle:'Feuille de permis — Terrasse', permHead:'Terrasse — Jeu de plans pour permis', residential:'Terrasse résidentielle', sheet1:'Feuille 1 de 1', notToScale:'Non à l’échelle · les cotes font foi',
+    capPlan:'Plan — implantation des fondations cotée depuis le coin côté maison (⌂ 0,0)', capSection:'Coupe — hauteur, poteaux, fondations, ligne de gel',
+    projData:'Données du projet', heightGrade:'Hauteur au-dessus du sol', decking:'Surface', joists:'Solives', beam:'Poutre', posts:'Poteaux', attachment:'Fixation',
+    attached:'Attachée — lisse + solin + ancrages latéraux', freestanding:'Autoportante', multiLevel:'multi-niveaux', deckBlocks:'Blocs de terrasse (sur sol)', onGrade:'sur sol', deckBlock:'bloc', bagsEach:'sacs de béton chacune', diag:'45° diagonale', risers:'contremarches', treads:'girons', wide:'largeur', bay:'portée de travée', max:'max',
+    footSched:'Cédule des fondations', footFrom:'fondations · X,Y depuis le coin côté maison', tag:'Rep.', size:'Diam.', depth:'Prof.',
+    codeSummary:'Sommaire de conformité au code', codeVerify:'(Québec / CNB — à confirmer avec votre municipalité)',
+    preparedApplicant:'Préparée / demandeur', reviewedDate:'Révisée · date',
+    permDisc:'<b>Sortie d’estimateur — non des plans scellés par un ingénieur.</b> Les portées, dimensions de poutre/fondation et la géométrie escalier/garde-corps sont des estimations prudentes; un examinateur ou ingénieur doit les confirmer selon le Code de construction du Québec / RBQ. Vérifiez la profondeur de gel et les marges avec votre municipalité avant l’excavation.',
+    addon:{Labour:'Main-d’œuvre',Delivery:'Livraison','Permit fee':'Frais de permis'}, contingency:'Imprévus' },
+};
+const t=k=>DOC_T[docLang][k];
+const docLocale=()=>docLang==='fr'?'fr-CA':'en-CA';
+const docMoney=v=>v.toLocaleString(docLocale(),{style:'currency',currency:'CAD'});
+const docMoney0=v=>Math.round(v).toLocaleString(docLocale(),{style:'currency',currency:'CAD',maximumFractionDigits:0});
+function docAddonName(name){ const m=t('addon'); if(m[name])return m[name]; const cm=name.match(/^Contingency \((\d+)%\)/); if(cm)return `${t('contingency')} (${cm[1]}%)`; return name; }
 function shadeHex(hex,f){ const m=hex.replace('#',''); const cl=x=>Math.max(0,Math.min(255,Math.round(x)));
   const r=cl(parseInt(m.slice(0,2),16)*f),g=cl(parseInt(m.slice(2,4),16)*f),b=cl(parseInt(m.slice(4,6),16)*f);
   return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join(''); }
@@ -1775,7 +1824,7 @@ function collectInputs(){
     showFraming:g('showFraming').checked, showFootings:g('showFootings').checked, cantilever:g('cantilever').checked,
     joistSize:g('joistSize').value, beamSize:g('beamSize').value, footingDia:g('footingDia').value, frostDepth:g('frostDepth').value,
     diagonal:g('diagonal').checked, labor:g('labor').value, contingency:g('contingency').value, permitFee:g('permitFee').value, delivery:g('delivery').value,
-    metric };
+    metric, docLang };
 }
 function applyInputs(d){
   state.material=d.material||'wood'; state.dir=d.dir||'length';
@@ -1788,6 +1837,7 @@ function applyInputs(d){
   ['boardLen','gap','waste','packSize','joistOC','deckHeight','postSpacing','footing','stairWidth','riserH','store','scale','railStyle','borderRows','stairSide','stairPos','joistSize','beamSize','footingDia','frostDepth','labor','contingency','permitFee','delivery'].forEach(k=>{if(d[k]!=null)document.getElementById(k).value=d[k];});
   ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming','showFootings','cantilever','diagonal'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
   metric=!!d.metric; document.getElementById('unitsBtn').textContent='⇄ '+(metric?'m':'ft');
+  docLang=(d.docLang==='fr')?'fr':'en'; document.getElementById('docLangBtn').textContent='🌐 '+docLang.toUpperCase();
   document.getElementById('packWrap').style.display=state.material==='comp'?'block':'none';
   document.getElementById('borderRowWrap').style.display=document.getElementById('hasBorder').checked?'flex':'none';
   updateFootingVis();
@@ -1823,19 +1873,19 @@ function generateProposal(){
   let subtotal=0, rowsHTML='';
   Object.keys(CAT).sort((a,b)=>CAT[a].order-CAT[b].order).forEach(k=>{
     const its=groups[k]; if(!its)return; const cs=its.reduce((a,i)=>a+i.total,0); subtotal+=cs;
-    rowsHTML+=`<tr class="catrow"><td colspan="3">${CAT[k].ic} ${CAT[k].label}</td><td class="r">${money(cs)}</td></tr>`;
-    its.forEach(i=>{ rowsHTML+=`<tr class="item"><td>${i.name}${i.note?`<div class="n">${i.note}</div>`:''}</td><td class="r">${i.qty} ${i.unitLabel}</td><td class="r">${money(i.unit)}</td><td class="r">${money(i.total)}</td></tr>`; });
+    rowsHTML+=`<tr class="catrow"><td colspan="3">${CAT[k].ic} ${CAT[k].label}</td><td class="r">${docMoney(cs)}</td></tr>`;
+    its.forEach(i=>{ rowsHTML+=`<tr class="item"><td>${i.name}${i.note?`<div class="n">${i.note}</div>`:''}</td><td class="r">${i.qty} ${i.unitLabel}</td><td class="r">${docMoney(i.unit)}</td><td class="r">${docMoney(i.total)}</td></tr>`; });
   });
   let cutRows='';
   r.cutList.forEach(c=>{ const cutTxt=c.perRow===1?(Math.abs(c.cutTo-c.boardLen)<0.05?`full ${c.boardLen}′ (no cut)`:`cut to ${c.cutTo}′`):`${c.perRow-1}× full + 1× ${c.cutTo}′`;
     cutRows+=`<tr class="item"><td>${c.w}′×${c.h}′</td><td class="r">${c.rows}</td><td class="r">${c.perRow}</td><td class="r">${cutTxt}</td><td class="r">${c.offRow>0.05?c.offRow+'′':'0'}</td></tr>`; });
   const taxable=subtotal+r.laborTotal+r.delivery+r.contingency;
   const gst=taxable*0.05, qst=taxable*0.09975, grand=taxable+gst+qst+r.permit;
-  const addonRowsHTML=r.addons.filter(a=>!a.noTax).map(a=>`<div class="row mut"><span>${a.name}</span><span>${money(a.total)}</span></div>`).join('');
+  const addonRowsHTML=r.addons.filter(a=>!a.noTax).map(a=>`<div class="row mut"><span>${docAddonName(a.name)}</span><span>${docMoney(a.total)}</span></div>`).join('');
   const mat=MATERIALS[state.material].label, dims=state.sections.map(s=>`${s.w}′×${s.h}′`).join(' + ');
-  const today=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
-  const perFt=r.area>0?money(grand/r.area):'$0';
-  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Deck Proposal${client?' — '+client:''}</title>
+  const today=new Date().toLocaleDateString(docLocale(),{year:'numeric',month:'long',day:'numeric'});
+  const areaLbl=metric?'m²':'ft²', perFt=r.area>0?docMoney(grand/(r.area*(metric?0.092903:1))):docMoney(0);
+  const html=`<!doctype html><html lang="${docLang}"><head><meta charset="utf-8"><title>${t('propTitle')}${client?' — '+client:''}</title>
   <style>
     @page{margin:12mm}
     *{box-sizing:border-box}
@@ -1885,43 +1935,43 @@ function generateProposal(){
   <div class="sheet">
     <div class="hero">
       <div class="badge">🪵</div>
-      <div><h1>Patio Deck Proposal</h1><div class="sub">${client||'Backyard patio deck'} &nbsp;·&nbsp; Prepared ${today} &nbsp;·&nbsp; Quebec pricing (${STORE_NAME[store]})</div></div>
-      <div class="tb"><div class="lab">Estimated total</div><div class="amt">${money0(grand)}</div><div class="tin">taxes in · ${perFt}/ft²</div></div>
+      <div><h1>${t('propHead')}</h1><div class="sub">${client||t('backyard')} &nbsp;·&nbsp; ${t('prepared')} ${today} &nbsp;·&nbsp; ${t('qcPricing')} (${STORE_NAME[store]})</div></div>
+      <div class="tb"><div class="lab">${t('estTotal')}</div><div class="amt">${docMoney0(grand)}</div><div class="tin">${t('taxesIn')} · ${perFt}/${areaLbl}</div></div>
     </div>
     <div class="body">
       <div class="overview">
-        <div class="card"><div class="k">Deck area</div><div class="v">${r.area.toFixed(0)} ft²</div></div>
-        <div class="card"><div class="k">Footprint</div><div class="v">${dims}</div></div>
-        <div class="card"><div class="k">Decking material</div><div class="v">${mat}</div></div>
-        <div class="card"><div class="k">Decking boards</div><div class="v">${r.deckBoards} × ${r.boardLen}′</div></div>
-        <div class="card"><div class="k">Framing</div><div class="v">${r.joistSizeUsed} @ ${g('joistOC').value}″ · ${r.beamUsed.size} ${r.beamUsed.ply}-ply beam ×${r.beamLines}</div></div>
-        <div class="card"><div class="k">Footings</div><div class="v">${r.postCount}</div></div>
-        <div class="card"><div class="k">Height</div><div class="v">${r.multiLevel?`${fmtLen(r.hMin)}–${fmtLen(r.hMax)}`:fmtLen(r.hMax)}</div></div>
-        ${r.stairInfo?`<div class="card"><div class="k">Stairs</div><div class="v">${r.stairInfo.risers} risers · ${r.stairInfo.treads} treads</div></div>`:'<div class="card"><div class="k">Stairs</div><div class="v">—</div></div>'}
-        <div class="card"><div class="k">Railing (exposed)</div><div class="v">${r.exposed.toFixed(0)} ft</div></div>
+        <div class="card"><div class="k">${t('deckArea')}</div><div class="v">${fmtArea(r.area)}</div></div>
+        <div class="card"><div class="k">${t('footprint')}</div><div class="v">${dims}</div></div>
+        <div class="card"><div class="k">${t('deckMat')}</div><div class="v">${mat}</div></div>
+        <div class="card"><div class="k">${t('deckBoards')}</div><div class="v">${r.deckBoards} × ${r.boardLen}′</div></div>
+        <div class="card"><div class="k">${t('framing')}</div><div class="v">${r.joistSizeUsed} @ ${g('joistOC').value}″ · ${r.beamUsed.size} ${r.beamUsed.ply}-ply ×${r.beamLines}</div></div>
+        <div class="card"><div class="k">${t('footings')}</div><div class="v">${r.postCount}</div></div>
+        <div class="card"><div class="k">${t('height')}</div><div class="v">${r.multiLevel?`${fmtLen(r.hMin)}–${fmtLen(r.hMax)}`:fmtLen(r.hMax)}</div></div>
+        ${r.stairInfo?`<div class="card"><div class="k">${t('stairs')}</div><div class="v">${r.stairInfo.risers} ${t('risers')} · ${r.stairInfo.treads} ${t('treads')}</div></div>`:`<div class="card"><div class="k">${t('stairs')}</div><div class="v">${t('none')}</div></div>`}
+        <div class="card"><div class="k">${t('railingExp')}</div><div class="v">${fmtLen(r.exposed)}</div></div>
       </div>
       ${imgPlan?`<div class="snapwrap"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div><img class="snap" src="${imgPlan}"><div class="cap">Plan view</div></div>
-        <div><img class="snap" src="${img3d}"><div class="cap">3D preview</div></div></div>
-        ${imgElev?`<div style="margin-top:12px"><img class="snap" src="${imgElev}"><div class="cap">Side section — height, posts &amp; footings</div></div>`:''}</div>`:''}
-      <h2 class="sec">Materials &amp; cost breakdown</h2>
-      <table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Unit price</th><th class="r">Amount</th></tr></thead><tbody>${rowsHTML}</tbody></table>
+        <div><img class="snap" src="${imgPlan}"><div class="cap">${t('planView')}</div></div>
+        <div><img class="snap" src="${img3d}"><div class="cap">${t('view3d')}</div></div></div>
+        ${imgElev?`<div style="margin-top:12px"><img class="snap" src="${imgElev}"><div class="cap">${t('section')}</div></div>`:''}</div>`:''}
+      <h2 class="sec">${t('matBreakdown')}</h2>
+      <table><thead><tr><th>${t('item')}</th><th class="r">${t('qty')}</th><th class="r">${t('unitPrice')}</th><th class="r">${t('amount')}</th></tr></thead><tbody>${rowsHTML}</tbody></table>
       <div class="totrow"><div class="totbox">
-        <div class="row"><span>Materials</span><b>${money(subtotal)}</b></div>
+        <div class="row"><span>${t('materials')}</span><b>${docMoney(subtotal)}</b></div>
         ${addonRowsHTML}
-        <div class="row mut"><span>GST (5%)</span><span>${money(gst)}</span></div>
-        <div class="row mut"><span>QST (9.975%)</span><span>${money(qst)}</span></div>
-        ${r.permit>0?`<div class="row mut"><span>Permit (no tax)</span><span>${money(r.permit)}</span></div>`:''}
-        <div class="row grand"><span>Total</span><span class="amt">${money(grand)}</span></div>
+        <div class="row mut"><span>${docLang==='fr'?'TPS':'GST'} (5%)</span><span>${docMoney(gst)}</span></div>
+        <div class="row mut"><span>${docLang==='fr'?'TVQ':'QST'} (9.975%)</span><span>${docMoney(qst)}</span></div>
+        ${r.permit>0?`<div class="row mut"><span>${t('permitNoTax')}</span><span>${docMoney(r.permit)}</span></div>`:''}
+        <div class="row grand"><span>${t('total')}</span><span class="amt">${docMoney(grand)}</span></div>
       </div></div>
-      <h2 class="sec" style="margin-top:26px">🪚 Board cut list &amp; offcuts</h2>
-      <table><thead><tr><th>Section</th><th class="r">Rows</th><th class="r">Boards / row</th><th class="r">Cut length</th><th class="r">Offcut / row</th></tr></thead><tbody>${cutRows||'<tr><td colspan="5">—</td></tr>'}</tbody></table>
+      <h2 class="sec" style="margin-top:26px">🪚 ${t('cutList')}</h2>
+      <table><thead><tr><th>${t('secCol')}</th><th class="r">${t('rows')}</th><th class="r">${t('boardsPerRow')}</th><th class="r">${t('cutLen')}</th><th class="r">${t('offcut')}</th></tr></thead><tbody>${cutRows||'<tr><td colspan="5">—</td></tr>'}</tbody></table>
       <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">
-        <div class="card" style="flex:1;min-width:180px"><div class="k">Total decking offcut</div><div class="v">${r.offcutLf.toFixed(0)} lin ft · ${r.wastePct.toFixed(0)}% waste</div></div>
-        ${r.suggest?`<div class="card" style="flex:1;min-width:180px"><div class="k">Suggested board length</div><div class="v">${r.suggest.boardLen}′ · ${r.suggest.pct.toFixed(0)}% waste</div></div>`:''}
+        <div class="card" style="flex:1;min-width:180px"><div class="k">${t('totOffcut')}</div><div class="v">${r.offcutLf.toFixed(0)} lin ft · ${r.wastePct.toFixed(0)}% ${t('waste')}</div></div>
+        ${r.suggest?`<div class="card" style="flex:1;min-width:180px"><div class="k">${t('suggLen')}</div><div class="v">${r.suggest.boardLen}′ · ${r.suggest.pct.toFixed(0)}% ${t('waste')}</div></div>`:''}
       </div>
-      <div class="sign"><div class="line">Prepared by</div><div class="line">Accepted by · date</div></div>
-      <div class="disc"><b>Estimate only — not engineered plans.</b> Quantities &amp; prices are approximate and change daily; confirm current pricing and stock at ${STORE_NAME[store]}. Verify joist/beam spans, footing depth (frost line ≈ 1.5 m in Quebec), ledger attachment, and stair/railing geometry against the Quebec Construction Code &amp; RBQ, and obtain the required permit before construction.</div>
+      <div class="sign"><div class="line">${t('preparedBy')}</div><div class="line">${t('acceptedBy')}</div></div>
+      <div class="disc">${t('propDisc')}</div>
     </div>
   </div>
   <script>setTimeout(()=>window.print(),400);<\/script>
@@ -1945,11 +1995,11 @@ function generatePermit(){
   const foot=footingCoords();
   const block=g('footing').value==='block', dia=g('footingDia').value;
   const bagsPer=block?0:footingBags(parseFloat(dia)||8, r.frostDepth);
-  const footRows=foot.map((p,i)=>`<tr><td>P${i+1}</td><td class="r">${fmtLen(p.dx)}</td><td class="r">${fmtLen(p.dy)}</td><td class="r">${block?'deck block':dia+'″ Ø'}</td><td class="r">${block?'on grade':fmtLen(r.frostDepth)}</td></tr>`).join('');
-  const codes=codeItems(r).map(it=>`<li class="${it.ok===false?'bad':it.ok===true?'ok':'inf'}">${it.ok===true?'✓':it.ok===false?'!':'·'} ${it.txt.replace(/<[^>]+>/g,'')}</li>`).join('');
+  const footRows=foot.map((p,i)=>`<tr><td>P${i+1}</td><td class="r">${fmtLen(p.dx)}</td><td class="r">${fmtLen(p.dy)}</td><td class="r">${block?t('deckBlock'):dia+'″ Ø'}</td><td class="r">${block?t('onGrade'):fmtLen(r.frostDepth)}</td></tr>`).join('');
+  const codes=codeItems(r).map(it=>`<li class="${it.ok===false?'bad':it.ok===true?'ok':'inf'}">${it.ok===true?'✓':it.ok===false?'!':'·'} ${codeText(it).replace(/<[^>]+>/g,'')}</li>`).join('');
   const dims=state.sections.map(s=>`${fmtLen(s.w)}×${fmtLen(s.h)}${s.z!=null?` @ ${fmtLen(s.z)}`:''}`).join('  +  ');
-  const today=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
-  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Deck Permit Sheet${proj?' — '+proj:''}</title><style>
+  const today=new Date().toLocaleDateString(docLocale(),{year:'numeric',month:'long',day:'numeric'});
+  const html=`<!doctype html><html lang="${docLang}"><head><meta charset="utf-8"><title>${t('permTitle')}${proj?' — '+proj:''}</title><style>
     @page{margin:12mm}*{box-sizing:border-box}
     body{font:12px/1.5 "Segoe UI",Roboto,Arial,sans-serif;color:#111;margin:0;background:#f2f4f6}
     .sheet{max-width:900px;margin:16px auto;background:#fff;border:1px solid #ccc}
@@ -1979,31 +2029,31 @@ function generatePermit(){
   </style></head><body>
   <div class="btns"><button onclick="window.print()">🖨️ Save as PDF / Print</button><button class="g" onclick="window.close()">Close</button></div>
   <div class="sheet">
-    <div class="hd"><div><h1>Deck — Permit Drawing Set</h1><div class="sub">${proj||'Residential patio deck'} · Prepared ${today}</div></div>
-      <div class="box">Sheet 1 of 1<br>Not to scale · dimensions govern</div></div>
+    <div class="hd"><div><h1>${t('permHead')}</h1><div class="sub">${proj||t('residential')} · ${t('prepared')} ${today}</div></div>
+      <div class="box">${t('sheet1')}<br>${t('notToScale')}</div></div>
     <div class="body">
       <div class="grid2">
-        <div>${imgPlan?`<img src="${imgPlan}"><div class="cap">Plan — footing layout dimensioned from house-side corner (⌂ 0,0)</div>`:''}</div>
-        <div>${imgElev?`<img src="${imgElev}"><div class="cap">Side section — height, posts, footings, frost line</div>`:''}</div>
+        <div>${imgPlan?`<img src="${imgPlan}"><div class="cap">${t('capPlan')}</div>`:''}</div>
+        <div>${imgElev?`<img src="${imgElev}"><div class="cap">${t('capSection')}</div>`:''}</div>
       </div>
-      <h2>Project data</h2>
+      <h2>${t('projData')}</h2>
       <table class="spec">
-        <tr><td>Footprint</td><td>${dims}  ·  ${fmtArea(r.area)}</td></tr>
-        <tr><td>Height above grade</td><td>${r.multiLevel?`${fmtLen(r.hMin)}–${fmtLen(r.hMax)} (multi-level)`:fmtLen(r.hMax)}</td></tr>
-        <tr><td>Decking</td><td>${MATERIALS[state.material].label} · ${r.deckBoards} × ${g('boardLen').value}′${r.diagonal?' · 45° diagonal':''}</td></tr>
-        <tr><td>Joists</td><td>${r.joistSizeUsed} @ ${g('joistOC').value}″ O.C. · bay span ${r.effSpanMax.toFixed(1)}′ / ${r.joistSpanMax.toFixed(1)}′ max</td></tr>
-        <tr><td>Beam</td><td>${r.beamUsed.size}, ${r.beamUsed.ply}-ply built-up × ${r.beamLines} line(s)</td></tr>
-        <tr><td>Posts</td><td>${r.postCount} × 6×6 @ ${fmtLen(r.postSpacingEff)}${r.cantMax>0?` · ${fmtLen(r.cantMax)} joist cantilever`:''}</td></tr>
-        <tr><td>Footings</td><td>${block?'Deck blocks (on grade)':`${dia}″ sonotube to ${fmtLen(r.frostDepth)} · ≈${bagsPer} bags concrete each`}</td></tr>
-        <tr><td>Attachment</td><td>${g('attached').checked?'Attached — ledger + flashing + lateral hold-downs':'Freestanding'}</td></tr>
-        ${r.stairInfo?`<tr><td>Stairs</td><td>${r.stairInfo.risers} risers / ${r.stairInfo.treads} treads · ${fmtLen(r.stairInfo.stairW)} wide</td></tr>`:''}
+        <tr><td>${t('footprint')}</td><td>${dims}  ·  ${fmtArea(r.area)}</td></tr>
+        <tr><td>${t('heightGrade')}</td><td>${r.multiLevel?`${fmtLen(r.hMin)}–${fmtLen(r.hMax)} (${t('multiLevel')})`:fmtLen(r.hMax)}</td></tr>
+        <tr><td>${t('decking')}</td><td>${MATERIALS[state.material].label} · ${r.deckBoards} × ${g('boardLen').value}′${r.diagonal?' · '+t('diag'):''}</td></tr>
+        <tr><td>${t('joists')}</td><td>${r.joistSizeUsed} @ ${g('joistOC').value}″ ${docLang==='fr'?'c/c':'O.C.'} · ${t('bay')} ${r.effSpanMax.toFixed(1)}′ / ${r.joistSpanMax.toFixed(1)}′ ${t('max')}</td></tr>
+        <tr><td>${t('beam')}</td><td>${r.beamUsed.size}, ${r.beamUsed.ply}-ply × ${r.beamLines}</td></tr>
+        <tr><td>${t('posts')}</td><td>${r.postCount} × 6×6 @ ${fmtLen(r.postSpacingEff)}${r.cantMax>0?` · ${fmtLen(r.cantMax)} ${docLang==='fr'?'porte-à-faux':'cantilever'}`:''}</td></tr>
+        <tr><td>${t('footings')}</td><td>${block?t('deckBlocks'):`${dia}″ ${docLang==='fr'?'tube →':'sonotube to'} ${fmtLen(r.frostDepth)} · ≈${bagsPer} ${t('bagsEach')}`}</td></tr>
+        <tr><td>${t('attachment')}</td><td>${g('attached').checked?t('attached'):t('freestanding')}</td></tr>
+        ${r.stairInfo?`<tr><td>${t('stairs')}</td><td>${r.stairInfo.risers} ${t('risers')} / ${r.stairInfo.treads} ${t('treads')} · ${fmtLen(r.stairInfo.stairW)} ${t('wide')}</td></tr>`:''}
       </table>
-      <h2>Footing schedule <span style="font-weight:400;text-transform:none;color:#888">(${foot.length} footings · X,Y from house-side corner)</span></h2>
-      <table><thead><tr><th>Tag</th><th class="r">X</th><th class="r">Y</th><th class="r">Size</th><th class="r">Depth</th></tr></thead><tbody>${footRows||'<tr><td colspan="5">—</td></tr>'}</tbody></table>
-      <h2>Code compliance summary <span style="font-weight:400;text-transform:none;color:#888">(Québec / CNB — verify with your municipality)</span></h2>
+      <h2>${t('footSched')} <span style="font-weight:400;text-transform:none;color:#888">(${foot.length} ${t('footFrom')})</span></h2>
+      <table><thead><tr><th>${t('tag')}</th><th class="r">X</th><th class="r">Y</th><th class="r">${t('size')}</th><th class="r">${t('depth')}</th></tr></thead><tbody>${footRows||'<tr><td colspan="5">—</td></tr>'}</tbody></table>
+      <h2>${t('codeSummary')} <span style="font-weight:400;text-transform:none;color:#888">${t('codeVerify')}</span></h2>
       <ul class="codes">${codes}</ul>
-      <div class="sign"><div class="l">Prepared / applicant</div><div class="l">Reviewed · date</div></div>
-      <div class="disc"><b>Estimator output — not stamped engineered drawings.</b> Spans, beam/footing sizes and stair/guard geometry are conservative estimates; a permit reviewer or engineer must confirm them against the Code de construction du Québec / RBQ. Verify frost depth and setbacks with your municipality before excavation.</div>
+      <div class="sign"><div class="l">${t('preparedApplicant')}</div><div class="l">${t('reviewedDate')}</div></div>
+      <div class="disc">${t('permDisc')}</div>
     </div>
   </div>
   <script>setTimeout(()=>window.print(),450);<\/script>
@@ -2184,49 +2234,58 @@ function beamGuide(r){
 /* ============================================================ QUÉBEC CODE CHECK (general guidance) ============================================================ */
 function codeItems(r){
   const g=id=>document.getElementById(id), items=[];
-  const li=(ok,txt)=>items.push({ok,txt});
+  const li=(ok,en,fr)=>items.push({ok,en,fr:fr||en});
   const heightFt=r.hMax||parseFloat(g('deckHeight').value)||0;
-  if(r.multiLevel) li('info',`Multi-level deck — heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}. Each level's guard/stairs are checked against its own height; transition steps between levels are added manually.`);
-  // Guardrails — CNB/Québec: guard required when walking surface > 600 mm (~24″) above grade
+  if(r.multiLevel) li('info',
+    `Multi-level deck — heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}. Each level's guard/stairs are checked against its own height; transition steps between levels are added manually.`,
+    `Terrasse multi-niveaux — hauteurs ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}. Le garde-corps/escalier de chaque niveau est vérifié selon sa propre hauteur; les marches de transition sont ajoutées manuellement.`);
   if(heightFt>2){
     const tall=heightFt>5.9, needH=tall?42:36;
-    li(g('hasRail').checked, `Guardrail <b>required</b> — highest surface ${fmtLen(heightFt)} (&gt; 600 mm) above grade. Min height <b>${needH}″</b> (${tall?'1070':'900'} mm).${g('hasRail').checked?'':' <b>Railing is currently OFF.</b>'}`);
-    li('info','Guard openings must reject a <b>4″ (100 mm) sphere</b> — keep baluster gaps ≤ 4″.');
+    li(g('hasRail').checked,
+      `Guardrail <b>required</b> — highest surface ${fmtLen(heightFt)} (&gt; 600 mm) above grade. Min height <b>${needH}″</b> (${tall?'1070':'900'} mm).${g('hasRail').checked?'':' <b>Railing is currently OFF.</b>'}`,
+      `Garde-corps <b>requis</b> — surface la plus haute ${fmtLen(heightFt)} (&gt; 600 mm) au-dessus du sol. Hauteur min. <b>${tall?'1070':'900'} mm</b>.${g('hasRail').checked?'':' <b>Le garde-corps est désactivé.</b>'}`);
+    li('info','Guard openings must reject a <b>4″ (100 mm) sphere</b> — keep baluster gaps ≤ 4″.',
+      'Les ouvertures du garde-corps doivent refuser une <b>sphère de 100 mm</b> — espacement des barreaux ≤ 100 mm.');
   } else {
-    li('info','No guardrail required by code (surface ≤ 600 mm above grade) — optional.');
+    li('info','No guardrail required by code (surface ≤ 600 mm above grade) — optional.',
+      'Aucun garde-corps exigé (surface ≤ 600 mm au-dessus du sol) — optionnel.');
   }
-  // Lateral load — attached decks need tension hold-down devices (DCA6 / CNB)
   if(g('attached').checked){
-    li(false, `Attached decks need <b>lateral-load connectors</b> (min 2 hold-down tension devices, ≈9 kN each) tying deck joists into the house framing — the ledger + screws alone don't resist pull-off.`);
+    li(false, `Attached decks need <b>lateral-load connectors</b> (min 2 hold-down tension devices, ≈9 kN each) tying deck joists into the house framing — the ledger + screws alone don't resist pull-off.`,
+      `Une terrasse attachée exige des <b>ancrages latéraux</b> (min. 2 dispositifs de retenue en tension, ≈9 kN chacun) reliant les solives à la charpente de la maison — la lisse et les vis seules ne résistent pas à l'arrachement.`);
   }
-  // Tall posts — need bracing above ~2 m
-  if(heightFt>6) li(false, `Posts over ~6′ (2 m) tall — add <b>diagonal / knee bracing</b> (or engineered posts) for lateral stability; a ${fmtLen(heightFt)} deck is at/above that.`);
-  else if(heightFt>4) li('info','Posts 4–6′ tall benefit from knee bracing at the beam-to-post joints for sway resistance.');
-  // Stairs — max riser 200 mm, min run 255 mm, handrail at 3+ risers, guard on open sides
+  if(heightFt>6) li(false, `Posts over ~6′ (2 m) tall — add <b>diagonal / knee bracing</b> (or engineered posts) for lateral stability; a ${fmtLen(heightFt)} deck is at/above that.`,
+    `Poteaux de plus de ~2 m — ajoutez un <b>contreventement diagonal</b> (ou des poteaux calculés) pour la stabilité latérale; une terrasse de ${fmtLen(heightFt)} atteint ce seuil.`);
+  else if(heightFt>4) li('info','Posts 4–6′ tall benefit from knee bracing at the beam-to-post joints for sway resistance.',
+    'Des poteaux de 1,2–2 m gagnent à recevoir des contreventements aux jonctions poutre-poteau.');
   if(g('hasStairs').checked && r.stairInfo){
     const riser=parseFloat(g('riserH').value)||0;
-    li(riser<=7.875&&riser>=5, `Stair risers <b>${riser}″</b> — code range 5″–<b>7-7/8″ (200 mm)</b>; ${r.stairInfo.risers} risers, ${r.stairInfo.treads} treads.`);
-    li('info','Min tread run <b>10″ (255 mm)</b>; a graspable <b>handrail</b> (865–965 mm) is required at <b>3+ risers</b>.');
-    if(r.stairInfo.treads>=2) li('info','Stair flights more than 600 mm above grade also need a <b>guard</b> on the open side(s), not just a handrail.');
-    // input sanity: is the stair actually narrower than the deck edge it sits on?
+    li(riser<=7.875&&riser>=5, `Stair risers <b>${riser}″</b> — code range 5″–<b>7-7/8″ (200 mm)</b>; ${r.stairInfo.risers} risers, ${r.stairInfo.treads} treads.`,
+      `Contremarches <b>${riser}″</b> — plage du code 5″–<b>7-7/8″ (200 mm)</b>; ${r.stairInfo.risers} contremarches, ${r.stairInfo.treads} girons.`);
+    li('info','Min tread run <b>10″ (255 mm)</b>; a graspable <b>handrail</b> (865–965 mm) is required at <b>3+ risers</b>.',
+      'Giron min. <b>255 mm</b>; une <b>main courante</b> préhensible (865–965 mm) est requise à <b>3 contremarches et plus</b>.');
+    if(r.stairInfo.treads>=2) li('info','Stair flights more than 600 mm above grade also need a <b>guard</b> on the open side(s), not just a handrail.',
+      'Un escalier de plus de 600 mm au-dessus du sol exige aussi un <b>garde-corps</b> du/des côté(s) ouvert(s), pas seulement une main courante.');
     const sw=parseFloat(g('stairWidth').value)||4, U=unionMetrics(state.sections);
     const iv=(edgeIntervals(g('stairSide').value,U).ints||[]).reduce((a,b)=>(b[1]-b[0])>(a[1]-a[0])?b:a,[0,0]);
-    if(sw>iv[1]-iv[0]+0.01) li(false, `Stair width <b>${fmtLen(sw)}</b> is wider than the deck edge it sits on (<b>${fmtLen(iv[1]-iv[0])}</b>) — it will overhang. Narrow the stairs or move them to a longer side.`);
+    if(sw>iv[1]-iv[0]+0.01) li(false, `Stair width <b>${fmtLen(sw)}</b> is wider than the deck edge it sits on (<b>${fmtLen(iv[1]-iv[0])}</b>) — it will overhang.`,
+      `La largeur d'escalier <b>${fmtLen(sw)}</b> dépasse le bord de terrasse (<b>${fmtLen(iv[1]-iv[0])}</b>) — il débordera.`);
   }
-  // Footings / frost
   const block=g('footing').value==='block';
   const frost=r.frostDepth||parseFloat(g('frostDepth').value)||4.5;
-  li(!block||heightFt<=1, `Footings must bear <b>below the frost line</b> — set to <b>${fmtLen(frost)}</b> here (Québec ≈ 1.2–1.8 m; varies by municipality). ${block?'Deck blocks sit on grade → floating/ground-level decks only, not frost-protected.':'Sonotubes must reach that depth.'}`);
-  // Cantilever
-  if(r.cantMax>0) li('info',`Joist cantilever <b>${fmtLen(r.cantMax)}</b> past the outer beam — code allows overhang up to ¼ of the back-span; keep it within the joist-size limit.`);
-  // Joist span (per bay — beams break the run into bays)
-  li(r.effSpanMax<=r.joistSpanMax+0.01 && !r.spanFail, `Longest joist bay <b>${r.effSpanMax.toFixed(1)}′</b> vs <b>${r.joistSpanMax.toFixed(1)}′</b> max for <b>${r.joistSizeUsed}</b> @ ${g('joistOC').value}″ O.C.${r.spanFail?' — deepen joists or add a beam.':''}`);
-  // Ledger
-  if(g('attached').checked) li('info','Attached deck: fasten the <b>ledger</b> with lag/through-bolts + flashing (not nails), and use joist hangers.');
+  li(!block||heightFt<=1, `Footings must bear <b>below the frost line</b> — set to <b>${fmtLen(frost)}</b> here (Québec ≈ 1.2–1.8 m; varies by municipality). ${block?'Deck blocks sit on grade → ground-level decks only, not frost-protected.':'Sonotubes must reach that depth.'}`,
+    `Les fondations doivent porter <b>sous la ligne de gel</b> — réglée à <b>${fmtLen(frost)}</b> (Québec ≈ 1,2–1,8 m; varie selon la municipalité). ${block?'Les blocs reposent sur le sol → terrasses au sol seulement, non protégées du gel.':'Les tubes doivent atteindre cette profondeur.'}`);
+  if(r.cantMax>0) li('info',`Joist cantilever <b>${fmtLen(r.cantMax)}</b> past the outer beam — code allows overhang up to ¼ of the back-span.`,
+    `Porte-à-faux des solives <b>${fmtLen(r.cantMax)}</b> au-delà de la poutre — le code permet jusqu'à ¼ de la portée arrière.`);
+  li(r.effSpanMax<=r.joistSpanMax+0.01 && !r.spanFail, `Longest joist bay <b>${r.effSpanMax.toFixed(1)}′</b> vs <b>${r.joistSpanMax.toFixed(1)}′</b> max for <b>${r.joistSizeUsed}</b> @ ${g('joistOC').value}″ O.C.${r.spanFail?' — deepen joists or add a beam.':''}`,
+    `Travée de solive la plus longue <b>${r.effSpanMax.toFixed(1)}′</b> vs <b>${r.joistSpanMax.toFixed(1)}′</b> max pour <b>${r.joistSizeUsed}</b> @ ${g('joistOC').value}″ c/c.${r.spanFail?' — solives plus profondes ou ajouter une poutre.':''}`);
+  if(g('attached').checked) li('info','Attached deck: fasten the <b>ledger</b> with lag/through-bolts + flashing (not nails), and use joist hangers.',
+    'Terrasse attachée : fixez la <b>lisse</b> avec tire-fond/boulons + solin (pas de clous) et des étriers de solive.');
   return items;
 }
+function codeText(it){ return docLang==='fr'?it.fr:it.en; }
 function codeCheck(r){
-  const rows=codeItems(r).map(it=>`<div class="cc ${it.ok===true?'ok':it.ok===false?'bad':'info'}">${it.ok===true?'✅':it.ok===false?'⚠️':'ℹ️'} ${it.txt}</div>`);
+  const rows=codeItems(r).map(it=>`<div class="cc ${it.ok===true?'ok':it.ok===false?'bad':'info'}">${it.ok===true?'✅':it.ok===false?'⚠️':'ℹ️'} ${it.en}</div>`);
   return `<div class="grp code-grp"><h2><span class="ic">📐</span> Code check <span class="cc-note">Québec / CNB — planning guidance, not a permit</span></h2>${rows.join('')}
     <div class="hint" style="margin-top:8px">Summarizes the Code de construction du Québec / National Building Code for planning only. Most decks need a <b>municipal permit</b> — always confirm locally.</div></div>`;
 }
