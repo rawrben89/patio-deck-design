@@ -28,7 +28,8 @@ framing, stairs, railing, fasteners, footings), and estimate cost with Quebec ta
   concrete bag count (π·r²·depth) and tube count; or on-grade deck blocks. **Region presets**
   auto-fill a typical Québec footing depth by area.
 - **Multi-level**: give any section its own height (row or on-canvas editor) — posts are sized per
-  level and the 3D/section/code all follow.
+  level, and where two sections at different heights share an edge the tool auto-generates the
+  **transition step-down** (risers/treads in the takeoff, drawn in 2D + 3D).
 - **Fasteners**: deck screws (wood) or hidden fasteners (composite), structural screws
 - **Stairs**: step count from deck height ÷ riser, stringers, tread boards
 - **Railing**: exposed perimeter (house side auto-excluded if attached)

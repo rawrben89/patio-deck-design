@@ -50,9 +50,9 @@ const a = lines.indexOf('<script>');
 const b = lines.indexOf('</script>', a + 1);
 if (a < 0 || b < 0) { console.error('Could not locate <script> block'); process.exit(1); }
 const code = lines.slice(a + 1, b).join('\n') +
-  '\nglobalThis.__api = { computeBOQ, setMaterial, state, footingBags, pickJoist, getStairGeom, unionMetrics, edgeIntervals };';
+  '\nglobalThis.__api = { computeBOQ, setMaterial, state, footingBags, pickJoist, getStairGeom, unionMetrics, edgeIntervals, interLevelStairs };';
 (0, eval)(code);                       // indirect eval → runs in global scope
-const { computeBOQ, setMaterial, state, footingBags, getStairGeom, unionMetrics, edgeIntervals } = globalThis.__api;
+const { computeBOQ, setMaterial, state, footingBags, getStairGeom, unionMetrics, edgeIntervals, interLevelStairs } = globalThis.__api;
 
 /* ---------- tiny assert harness ---------- */
 let fails = 0, count = 0;
@@ -132,6 +132,25 @@ store.stairSide.value='S'; store.stairPos.value='100'; stairOnEdge('L-shape stai
 // U-shape / detached: two top sections with a GAP between them; stairs on N must not float over the gap
 reset(); state.sections=[{id:1,x:2,y:2,w:6,h:8},{id:2,x:16,y:2,w:6,h:8}];
 ['0','50','100'].forEach(p=>{ store.stairSide.value='N'; store.stairPos.value=p; stairOnEdge('gap top edge @'+p+'%'); });
+
+// inter-level transition steps between adjacent sections at different heights
+reset(); state.sections=[{id:1,x:2,y:2,w:12,h:10}, {id:2,x:14,y:2,w:10,h:10,z:1.5}];  // 1.5 ft step, shared edge at x=14→? not adjacent (gap)
+// make them share an edge: second starts where first ends
+state.sections=[{id:1,x:2,y:2,w:12,h:10}, {id:2,x:14,y:2,w:10,h:10,z:1.5}];
+state.sections[1].x = state.sections[0].x + state.sections[0].w;   // adjacent (x=14)
+{ const trs=interLevelStairs();
+  ok(trs.length===1, 'adjacent different-height sections produce one transition');
+  ok(trs.length && trs[0].risers>=1, 'transition has at least one riser');
+  const r=computeBOQ();
+  ok(r.transitions===1, 'BOQ reports the transition');
+  ok(r.items.some(i=>/transition/i.test(i.name)), 'BOQ adds transition material');
+}
+// same height, adjacent → no transition
+reset(); state.sections=[{id:1,x:2,y:2,w:12,h:10},{id:2,x:14,y:2,w:10,h:10}];
+ok(interLevelStairs().length===0, 'same-height neighbours produce no transition');
+// different height but NOT adjacent (gap) → no transition
+reset(); state.sections=[{id:1,x:2,y:2,w:8,h:10},{id:2,x:16,y:2,w:8,h:10,z:2}];
+ok(interLevelStairs().length===0, 'non-adjacent levels produce no transition');
 
 // footing concrete scales with tube diameter
 ok(footingBags(10,4.5) > footingBags(8,4.5), 'footings: 10" needs more concrete than 8"');

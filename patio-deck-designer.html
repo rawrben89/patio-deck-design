@@ -879,6 +879,37 @@ function getStairGeom(U){
   const sx=cx-along[0]*stairW/2, sy=cy-along[1]*stairW/2;
   return {side,along,out,sx,sy,stairW,treads,risers,H,run:0.9};
 }
+// shared border between two sections (axis, edge coordinate, overlap span) — for multi-level transitions
+function sharedEdge(A,B){
+  const tol=0.05;
+  const oy0=Math.max(A.y,B.y), oy1=Math.min(A.y+A.h,B.y+B.h);
+  const ox0=Math.max(A.x,B.x), ox1=Math.min(A.x+A.w,B.x+B.w);
+  if(oy1-oy0>0.25){                                       // vertical shared edge
+    if(Math.abs((A.x+A.w)-B.x)<tol) return {axis:'v',c:A.x+A.w,s0:oy0,s1:oy1};
+    if(Math.abs((B.x+B.w)-A.x)<tol) return {axis:'v',c:A.x,   s0:oy0,s1:oy1};
+  }
+  if(ox1-ox0>0.25){                                       // horizontal shared edge
+    if(Math.abs((A.y+A.h)-B.y)<tol) return {axis:'h',c:A.y+A.h,s0:ox0,s1:ox1};
+    if(Math.abs((B.y+B.h)-A.y)<tol) return {axis:'h',c:A.y,   s0:ox0,s1:ox1};
+  }
+  return null;
+}
+// transition steps between adjacent sections at different heights (step down onto the lower level)
+function interLevelStairs(){
+  const riser=parseFloat(document.getElementById('riserH').value)||7.5, riserFt=riser/12, treadRun=10.5/12;
+  const S=state.sections, out=[];
+  for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++){
+    const A=S[i],B=S[j],hA=secH(A),hB=secH(B);
+    if(Math.abs(hA-hB)<0.05) continue;                    // same level — no transition
+    const e=sharedEdge(A,B); if(!e) continue;
+    const hHigh=Math.max(hA,hB), hLow=Math.min(hA,hB), dh=hHigh-hLow, lo=hA<hB?A:B;
+    const ov = e.axis==='v' ? [(lo.x>=e.c-0.05)?1:-1,0] : [0,(lo.y>=e.c-0.05)?1:-1];  // into the low deck
+    const risers=Math.max(1,Math.round(dh/riserFt)), treads=Math.max(0,risers-1), run=treads*treadRun;
+    const base = e.axis==='v'?[e.c,e.s0]:[e.s0,e.c], along = e.axis==='v'?[0,1]:[1,0];
+    out.push({axis:e.axis,base,along,ov,span:e.s1-e.s0,hHigh,hLow,dh,risers,treads,run,riserFt,treadRun});
+  }
+  return out;
+}
 // contiguous run(s) of actual deck along a given outer side — merged intervals, so stairs
 // can't float over a gap (U-shapes / detached sections) or hang off the bounding box
 function edgeIntervals(side,U){
@@ -1092,6 +1123,17 @@ function draw(){
     ctx.fillStyle='#f6a623';ctx.font='700 10px system-ui';ctx.textAlign='center';
     ctx.fillText(`⬇ ${treads} steps`,px(sx+along[0]*stairW/2+out[0]*run*treads*0.6),px(sy+along[1]*stairW/2+out[1]*run*treads*0.6));
   }
+  // inter-level transition steps (2D) — nosing lines along the shared edge + a label
+  interLevelStairs().forEach(tr=>{
+    const {base,along,ov,span,risers,treadRun}=tr;
+    ctx.strokeStyle='#c084fc';ctx.lineWidth=1.6;ctx.setLineDash([]);
+    for(let k=0;k<=risers;k++){ const o=Math.min(k,tr.treads)*treadRun;
+      ctx.beginPath();ctx.moveTo(px(base[0]+ov[0]*o),px(base[1]+ov[1]*o));
+      ctx.lineTo(px(base[0]+along[0]*span+ov[0]*o),px(base[1]+along[1]*span+ov[1]*o));ctx.stroke(); }
+    const lo=Math.max(0.3,tr.run);
+    ctx.fillStyle='#c084fc';ctx.font='700 9px system-ui';ctx.textAlign='center';
+    ctx.fillText(`⬇ ${risers}`,px(base[0]+along[0]*span/2+ov[0]*lo*0.6),px(base[1]+along[1]*span/2+ov[1]*lo*0.6));
+  });
   if(drawing&&dragStart&&dragCur){
     const x=Math.min(dragStart.x,dragCur.x),y=Math.min(dragStart.y,dragCur.y),w=Math.abs(dragCur.x-dragStart.x),h=Math.abs(dragCur.y-dragStart.y);
     ctx.strokeStyle='#fff';ctx.setLineDash([6,4]);ctx.lineWidth=1.5;ctx.strokeRect(px(x),px(y),px(w),px(h));ctx.setLineDash([]);
@@ -1261,6 +1303,18 @@ function draw3D(){
         line([bx,by,0],[bx,by,hh],col.railT,2.4); });        // bottom post
     }
   }
+  // inter-level transition steps (between adjacent sections at different heights)
+  interLevelStairs().forEach(tr=>{
+    const {base,along,ov,span,hHigh,riserFt,treadRun,risers}=tr;
+    for(let k=0;k<risers;k++){
+      const z=hHigh-(k+1)*riserFt;                               // this tread's surface height
+      const bx=base[0]+ov[0]*treadRun*k, by=base[1]+ov[1]*treadRun*k;
+      const fx=bx+ov[0]*treadRun, fy=by+ov[1]*treadRun;
+      const a=[bx,by],b=[bx+along[0]*span,by+along[1]*span],c=[fx+along[0]*span,fy+along[1]*span],d=[fx,fy];
+      quad(P(...a,z),P(...b,z),P(...c,z),P(...d,z),col.top,'#0006');                        // tread top
+      quad(P(...a,z),P(...b,z),P(...b,z+riserFt),P(...a,z+riserFt),col.s,'#0006');           // riser face
+    }
+  });
   // house wall + sliding patio door (3D) — starts at deck level so it never covers the deck
   if(hasHouse){
     // door sits at the height of the deck level touching the house
@@ -1663,6 +1717,20 @@ function computeBOQ(){
     if(footing==='sonotube') add('Stair landing concrete (bags)', 3,'concrete_bag','stairs','wood','landing pad');
     stairInfo={risers,treads,stairW,nStr,stairLen};
   }
+  // ---------- INTER-LEVEL TRANSITION STEPS (multi-level decks) ----------
+  const transitions=interLevelStairs();
+  let transRisers=0;
+  if(transitions.length){
+    let treadB=0, riserLf=0;
+    const treadRows=Math.max(1,Math.ceil((10.5/12)/faceFt));
+    transitions.forEach(tr=>{ transRisers+=tr.risers;
+      treadB += tr.treads*treadRows*Math.ceil(tr.span/boardLen);       // intermediate treads (low deck is already decked)
+      riserLf += tr.span*tr.risers;                                    // riser faces + cleats
+    });
+    if(treadB>0) add('Level-transition treads', Math.ceil(treadB*waste), prof.priceKey,'stairs',tag,`${transitions.length} step-down(s) · ${transRisers} risers`);
+    add('Transition risers / cleats (2x8)', Math.max(1,Math.ceil(riserLf*1.1/boardLen)),'joist_2x8','stairs','wood',`${transitions.length} between-level transition(s)`);
+    add('Transition brackets', transitions.length*2,'post_base','stairs','wood','ties at each level edge');
+  }
 
   // ---------- RAILING (per enabled side, minus house side & stair opening) ----------
   const stairSide=g('stairSide').value;
@@ -1704,7 +1772,7 @@ function computeBOQ(){
   if(permit>0)addons.push({name:'Permit fee',note:'municipal · not taxed',total:permit,noTax:true});
 
   return {items, area:U.area, perimeter:U.perimeter, exposed, sides:U.sides, deckBoards, joistCount, postCount, beamLines:beamLinesTot, boardLen, stairInfo, stairSide, overlap, sumArea, maxSpan, effSpanMax, joistSpanMax, joistSizeUsed, beamUsed, beamWarn, spanFail, postSpacingEff, diagonal, cutList, offcutLf, wastePct, borderRows, faceIn:prof.face, suggest,
-    hMin, hMax, avgH, multiLevel, cantMax, hasCant, frostDepth,
+    hMin, hMax, avgH, multiLevel, cantMax, hasCant, frostDepth, transitions:transitions.length, transRisers,
     matSubtotal, addons, laborTotal, permit, delivery, contingency};
 }
 
@@ -1773,7 +1841,7 @@ function recalc(){
       <b>Suggested bottom framing:</b> <b>${r.joistSizeUsed}</b> joists @ ${document.getElementById('joistOC').value}″ O.C. running ${joistDir}; longest bay <b>${r.effSpanMax.toFixed(1)}′</b> of ${r.joistSpanMax.toFixed(1)}′ allowed ${spanOK?'✅':'— <b style="color:#ffb454">still over: pick a deeper joist or tighter spacing</b>'}. Built-up <b>${beamTxt}</b> beam × ${r.beamLines} on 6×6 posts @ <b>${fmtLen(r.postSpacingEff)}</b>${psWarn?' <span style="color:#ffb454">(tightened from your setting so the beam carries the load)</span>':''} → ${r.postCount} footing(s)${attached?', ledger on the house side':' (freestanding — beam each end)'}.
       ${r.beamWarn?'<b style="color:#ffb454"> Chosen beam can\'t span your post spacing — add posts or a deeper beam.</b>':''}
       ${r.cantMax>0?` Joists cantilever <b>${fmtLen(r.cantMax)}</b> past the outer beam.`:''}
-      ${r.multiLevel?` <b>Multi-level:</b> heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}; posts sized per level.`:''}
+      ${r.multiLevel?` <b>Multi-level:</b> heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}; posts sized per level${r.transitions?` · ${r.transitions} transition step-down(s)`:''}.`:''}
       ${r.stairInfo?`Stairs: ${r.stairInfo.risers} risers / ${r.stairInfo.treads} treads.`:''}
       <span style="color:#7fb0c4">Toggle <b>🧱 Framing</b> / <b>📍 Footing plan</b> above the plan to see it drawn.</span>
     </div></div>`;
@@ -2237,8 +2305,8 @@ function codeItems(r){
   const li=(ok,en,fr)=>items.push({ok,en,fr:fr||en});
   const heightFt=r.hMax||parseFloat(g('deckHeight').value)||0;
   if(r.multiLevel) li('info',
-    `Multi-level deck — heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}. Each level's guard/stairs are checked against its own height; transition steps between levels are added manually.`,
-    `Terrasse multi-niveaux — hauteurs ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}. Le garde-corps/escalier de chaque niveau est vérifié selon sa propre hauteur; les marches de transition sont ajoutées manuellement.`);
+    `Multi-level deck — heights ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}${r.transitions?` · ${r.transitions} transition step-down(s) (${r.transRisers} risers) between levels`:''}. Each level's guard/stairs are checked against its own height.`,
+    `Terrasse multi-niveaux — hauteurs ${fmtLen(r.hMin)}–${fmtLen(r.hMax)}${r.transitions?` · ${r.transitions} marche(s) de transition (${r.transRisers} contremarches) entre niveaux`:''}. Le garde-corps/escalier de chaque niveau est vérifié selon sa hauteur.`);
   if(heightFt>2){
     const tall=heightFt>5.9, needH=tall?42:36;
     li(g('hasRail').checked,
