@@ -810,12 +810,8 @@ function getStairGeom(U){
   const stairW=parseFloat(g('stairWidth').value)||4;
   const pos=(parseFloat(g('stairPos').value)||50)/100, side=g('stairSide').value;
   const {minX,minY,maxX,maxY}=U;
-  // map & clamp the stair centre to the actual deck edge, keeping a corner clearance so the
-  // flight never jams into the corner post / side railing (slider spans the clear range)
-  const es=edgeSpan(side,U), half=stairW/2, L=es.hi-es.lo;
-  const margin=Math.min(STAIR_CORNER_CLEAR, Math.max(0,(L-stairW)/2));
-  const cLo=es.lo+half+margin, cHi=es.hi-half-margin;
-  const centre = cLo<=cHi ? cLo+pos*(cHi-cLo) : (es.lo+es.hi)/2;
+  // snap the stair centre onto a contiguous run of real deck on this side (corner clearance kept)
+  const centre=stairCentre(side,U,pos,stairW).centre;
   let along,out,cx,cy;
   if(side==='S'){along=[1,0];out=[0,1];cx=centre;cy=maxY;}
   else if(side==='N'){along=[1,0];out=[0,-1];cx=centre;cy=minY;}
@@ -824,18 +820,33 @@ function getStairGeom(U){
   const sx=cx-along[0]*stairW/2, sy=cy-along[1]*stairW/2;
   return {side,along,out,sx,sy,stairW,treads,risers,H,run:0.9};
 }
-// coordinate range along a given side where the deck actually reaches the outer edge
-// (so stairs clamp to real deck, not the bounding box — matters for L-shapes)
-function edgeSpan(side,U){
-  const tol=0.02; let secs;
-  if(side==='S') secs=state.sections.filter(s=>Math.abs((s.y+s.h)-U.maxY)<tol);
-  else if(side==='N') secs=state.sections.filter(s=>Math.abs(s.y-U.minY)<tol);
-  else if(side==='E') secs=state.sections.filter(s=>Math.abs((s.x+s.w)-U.maxX)<tol);
-  else secs=state.sections.filter(s=>Math.abs(s.x-U.minX)<tol);
-  if(!secs.length) secs=state.sections;
-  return (side==='S'||side==='N')
-    ? {lo:Math.min(...secs.map(s=>s.x)),   hi:Math.max(...secs.map(s=>s.x+s.w))}
-    : {lo:Math.min(...secs.map(s=>s.y)),   hi:Math.max(...secs.map(s=>s.y+s.h))};
+// contiguous run(s) of actual deck along a given outer side — merged intervals, so stairs
+// can't float over a gap (U-shapes / detached sections) or hang off the bounding box
+function edgeIntervals(side,U){
+  const tol=0.02, segs=[];
+  state.sections.forEach(s=>{
+    if(side==='S'&&Math.abs((s.y+s.h)-U.maxY)<tol) segs.push([s.x,s.x+s.w]);
+    else if(side==='N'&&Math.abs(s.y-U.minY)<tol) segs.push([s.x,s.x+s.w]);
+    else if(side==='E'&&Math.abs((s.x+s.w)-U.maxX)<tol) segs.push([s.y,s.y+s.h]);
+    else if(side==='W'&&Math.abs(s.x-U.minX)<tol) segs.push([s.y,s.y+s.h]);
+  });
+  const full=(side==='S'||side==='N')?[U.minX,U.maxX]:[U.minY,U.maxY];
+  if(!segs.length) return {ints:[full.slice()], full};
+  segs.sort((a,b)=>a[0]-b[0]);
+  const ints=[segs[0].slice()];
+  for(let i=1;i<segs.length;i++){ const last=ints[ints.length-1];
+    if(segs[i][0]<=last[1]+tol) last[1]=Math.max(last[1],segs[i][1]); else ints.push(segs[i].slice()); }
+  return {ints, full};
+}
+// stair centre for a side/pos: map pos over the edge, snap onto the nearest deck run, clamp with corner clearance
+function stairCentre(side,U,pos,stairW){
+  const {ints,full}=edgeIntervals(side,U);
+  const target=full[0]+pos*(full[1]-full[0]);
+  let best=ints[0],bestD=Infinity;
+  ints.forEach(iv=>{ const d=target<iv[0]?iv[0]-target:(target>iv[1]?target-iv[1]:0); if(d<bestD){bestD=d;best=iv;} });
+  const L=best[1]-best[0], half=stairW/2, margin=Math.min(STAIR_CORNER_CLEAR,Math.max(0,(L-stairW)/2));
+  const cLo=best[0]+half+margin, cHi=best[1]-half-margin;
+  return {centre: cLo<=cHi?Math.max(cLo,Math.min(cHi,target)):(best[0]+best[1])/2, full, interval:best};
 }
 function houseSpan(U){ // x-range of sections touching the house (min-y) side
   const tops=state.sections.filter(s=>Math.abs(s.y-U.minY)<0.02);
@@ -1318,15 +1329,9 @@ function stairHit(pt){ const st=getStairGeom(boundsFt()); if(!st)return false; c
   return pointInPoly(pt.x,pt.y,poly); }
 function dragStairTo(pt){
   const b=boundsFt(), dN=Math.abs(pt.y-b.minY),dS=Math.abs(pt.y-b.maxY),dW=Math.abs(pt.x-b.minX),dE=Math.abs(pt.x-b.maxX),m=Math.min(dN,dS,dW,dE);
-  const stairW=parseFloat(document.getElementById('stairWidth').value)||4, half=stairW/2;
-  // pick the nearest edge, then drive the stair CENTRE along the REAL deck edge on that side
-  let side,coord; if(m===dS){side='S';coord=pt.x;} else if(m===dN){side='N';coord=pt.x;} else if(m===dE){side='E';coord=pt.y;} else {side='W';coord=pt.y;}
-  const es=edgeSpan(side,b), L=es.hi-es.lo;
-  const margin=Math.min(STAIR_CORNER_CLEAR, Math.max(0,(L-stairW)/2));   // corner clearance
-  coord=snapFt(coord);                                                   // snap centre to the snap increment
-  const cLo=es.lo+half+margin, cHi=es.hi-half-margin;
-  coord=cLo<=cHi ? Math.max(cLo,Math.min(cHi,coord)) : (es.lo+es.hi)/2;  // clear corners, stay on-edge
-  const pos=cHi>cLo?(coord-cLo)/(cHi-cLo):0.5;
+  // nearest edge + cursor position along it → pos; getStairGeom snaps that onto a real deck run
+  let side,coord,lo,hi; if(m===dS){side='S';coord=pt.x;lo=b.minX;hi=b.maxX;} else if(m===dN){side='N';coord=pt.x;lo=b.minX;hi=b.maxX;} else if(m===dE){side='E';coord=pt.y;lo=b.minY;hi=b.maxY;} else {side='W';coord=pt.y;lo=b.minY;hi=b.maxY;}
+  const pos=(hi>lo)?Math.max(0,Math.min(1,(snapFt(coord)-lo)/(hi-lo))):0.5;
   document.getElementById('stairSide').value=side;
   const pv=Math.round(pos*100); document.getElementById('stairPos').value=pv; document.getElementById('stairPosVal').textContent=pv;
 }

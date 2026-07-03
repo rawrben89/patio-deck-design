@@ -50,9 +50,9 @@ const a = lines.indexOf('<script>');
 const b = lines.indexOf('</script>', a + 1);
 if (a < 0 || b < 0) { console.error('Could not locate <script> block'); process.exit(1); }
 const code = lines.slice(a + 1, b).join('\n') +
-  '\nglobalThis.__api = { computeBOQ, setMaterial, state, footingBags, pickJoist, getStairGeom, unionMetrics };';
+  '\nglobalThis.__api = { computeBOQ, setMaterial, state, footingBags, pickJoist, getStairGeom, unionMetrics, edgeIntervals };';
 (0, eval)(code);                       // indirect eval → runs in global scope
-const { computeBOQ, setMaterial, state, footingBags, getStairGeom, unionMetrics } = globalThis.__api;
+const { computeBOQ, setMaterial, state, footingBags, getStairGeom, unionMetrics, edgeIntervals } = globalThis.__api;
 
 /* ---------- tiny assert harness ---------- */
 let fails = 0, count = 0;
@@ -110,18 +110,15 @@ ok(r.addons.length === 4, 'budget: four add-on lines');
 ok(r.permit === 250, 'budget: permit passthrough');
 ok(grand(r) > r.matSubtotal * 1.14975, 'budget: add-ons raise the total');
 
-// stairs stay fully on the real deck edge (rectangle, extremes, L-shape, wide flight)
+// stairs must sit fully inside ONE contiguous deck run on the chosen side (never over a gap)
 function stairOnEdge(label){
   const U = unionMetrics(state.sections);
   const st = getStairGeom(U); if(!st) return;
-  const a0 = st.side==='S'||st.side==='N' ? st.sx : st.sy;         // flight start along the edge
+  const a0 = (st.side==='S'||st.side==='N') ? st.sx : st.sy;       // flight start along the edge
   const a1 = a0 + st.stairW;                                        // flight end
-  const es = st.side==='S'||st.side==='N'
-    ? { lo:Math.min(...state.sections.filter(s=>Math.abs((st.side==='S'?s.y+s.h:s.y)-(st.side==='S'?U.maxY:U.minY))<0.02).map(s=>s.x)),
-        hi:Math.max(...state.sections.filter(s=>Math.abs((st.side==='S'?s.y+s.h:s.y)-(st.side==='S'?U.maxY:U.minY))<0.02).map(s=>s.x+s.w)) }
-    : { lo:Math.min(...state.sections.filter(s=>Math.abs((st.side==='E'?s.x+s.w:s.x)-(st.side==='E'?U.maxX:U.minX))<0.02).map(s=>s.y)),
-        hi:Math.max(...state.sections.filter(s=>Math.abs((st.side==='E'?s.x+s.w:s.x)-(st.side==='E'?U.maxX:U.minX))<0.02).map(s=>s.y+s.h)) };
-  ok(a0 >= es.lo - 1e-6 && a1 <= es.hi + 1e-6, `${label}: stair flight stays within the deck edge`);
+  const { ints } = edgeIntervals(st.side, U);
+  const inside = ints.some(iv => a0 >= iv[0] - 1e-6 && a1 <= iv[1] + 1e-6);
+  ok(inside, `${label}: stair flight sits within a contiguous deck run`);
 }
 reset(); store.stairSide.value='S'; store.stairPos.value='0';  stairOnEdge('stairs at 0%');
 // position 0 must clear the corner (not jam flush) when the edge has room
@@ -132,6 +129,9 @@ reset(); store.stairSide.value='E'; store.stairPos.value='95';  stairOnEdge('sta
 // L-shape: bottom edge is only the lower-left rectangle; stairs on S must sit on it, not the notch
 reset(); state.sections=[{id:1,x:2,y:2,w:16,h:8},{id:2,x:2,y:10,w:8,h:8}];
 store.stairSide.value='S'; store.stairPos.value='100'; stairOnEdge('L-shape stairs on short bottom edge');
+// U-shape / detached: two top sections with a GAP between them; stairs on N must not float over the gap
+reset(); state.sections=[{id:1,x:2,y:2,w:6,h:8},{id:2,x:16,y:2,w:6,h:8}];
+['0','50','100'].forEach(p=>{ store.stairSide.value='N'; store.stairPos.value=p; stairOnEdge('gap top edge @'+p+'%'); });
 
 // footing concrete scales with tube diameter
 ok(footingBags(10,4.5) > footingBags(8,4.5), 'footings: 10" needs more concrete than 8"');
