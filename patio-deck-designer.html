@@ -808,16 +808,30 @@ function getStairGeom(U){
   const risers=Math.max(1,Math.round(H*12/riser)), treads=Math.max(1,risers-1);
   const stairW=parseFloat(g('stairWidth').value)||4;
   const pos=(parseFloat(g('stairPos').value)||50)/100, side=g('stairSide').value;
-  const {minX,minY,maxX,maxY}=U, W=maxX-minX, Hd=maxY-minY;
-  // keep the whole stair on the edge: centre stays ≥ half-width from either corner
-  const centreOn=(origin,len)=>{ const half=stairW/2; return len>stairW ? origin+Math.min(Math.max(pos*len,half),len-half) : origin+len/2; };
+  const {minX,minY,maxX,maxY}=U;
+  // map & clamp the stair centre to the actual deck edge on this side (not the bounding box)
+  const es=edgeSpan(side,U), half=stairW/2, L=es.hi-es.lo;
+  const centre = L>stairW ? es.lo+Math.min(Math.max(pos*L,half),L-half) : (es.lo+es.hi)/2;
   let along,out,cx,cy;
-  if(side==='S'){along=[1,0];out=[0,1];cx=centreOn(minX,W);cy=maxY;}
-  else if(side==='N'){along=[1,0];out=[0,-1];cx=centreOn(minX,W);cy=minY;}
-  else if(side==='E'){along=[0,1];out=[1,0];cx=maxX;cy=centreOn(minY,Hd);}
-  else {along=[0,1];out=[-1,0];cx=minX;cy=centreOn(minY,Hd);}
+  if(side==='S'){along=[1,0];out=[0,1];cx=centre;cy=maxY;}
+  else if(side==='N'){along=[1,0];out=[0,-1];cx=centre;cy=minY;}
+  else if(side==='E'){along=[0,1];out=[1,0];cx=maxX;cy=centre;}
+  else {along=[0,1];out=[-1,0];cx=minX;cy=centre;}
   const sx=cx-along[0]*stairW/2, sy=cy-along[1]*stairW/2;
   return {side,along,out,sx,sy,stairW,treads,risers,H,run:0.9};
+}
+// coordinate range along a given side where the deck actually reaches the outer edge
+// (so stairs clamp to real deck, not the bounding box — matters for L-shapes)
+function edgeSpan(side,U){
+  const tol=0.02; let secs;
+  if(side==='S') secs=state.sections.filter(s=>Math.abs((s.y+s.h)-U.maxY)<tol);
+  else if(side==='N') secs=state.sections.filter(s=>Math.abs(s.y-U.minY)<tol);
+  else if(side==='E') secs=state.sections.filter(s=>Math.abs((s.x+s.w)-U.maxX)<tol);
+  else secs=state.sections.filter(s=>Math.abs(s.x-U.minX)<tol);
+  if(!secs.length) secs=state.sections;
+  return (side==='S'||side==='N')
+    ? {lo:Math.min(...secs.map(s=>s.x)),   hi:Math.max(...secs.map(s=>s.x+s.w))}
+    : {lo:Math.min(...secs.map(s=>s.y)),   hi:Math.max(...secs.map(s=>s.y+s.h))};
 }
 function houseSpan(U){ // x-range of sections touching the house (min-y) side
   const tops=state.sections.filter(s=>Math.abs(s.y-U.minY)<0.02);
@@ -1301,16 +1315,13 @@ function stairHit(pt){ const st=getStairGeom(boundsFt()); if(!st)return false; c
 function dragStairTo(pt){
   const b=boundsFt(), dN=Math.abs(pt.y-b.minY),dS=Math.abs(pt.y-b.maxY),dW=Math.abs(pt.x-b.minX),dE=Math.abs(pt.x-b.maxX),m=Math.min(dN,dS,dW,dE);
   const stairW=parseFloat(document.getElementById('stairWidth').value)||4, half=stairW/2;
-  // pick the nearest edge, then drive the stair CENTRE along it — snapped to the grid and clamped on-edge
-  let side,coord,origin,len;
-  if(m===dS){side='S';coord=pt.x;origin=b.minX;len=b.maxX-b.minX;}
-  else if(m===dN){side='N';coord=pt.x;origin=b.minX;len=b.maxX-b.minX;}
-  else if(m===dE){side='E';coord=pt.y;origin=b.minY;len=b.maxY-b.minY;}
-  else {side='W';coord=pt.y;origin=b.minY;len=b.maxY-b.minY;}
+  // pick the nearest edge, then drive the stair CENTRE along the REAL deck edge on that side
+  let side,coord; if(m===dS){side='S';coord=pt.x;} else if(m===dN){side='N';coord=pt.x;} else if(m===dE){side='E';coord=pt.y;} else {side='W';coord=pt.y;}
+  const es=edgeSpan(side,b), L=es.hi-es.lo;
   coord=snapFt(coord);                                                   // snap centre to the snap increment
-  const lo=origin+(len>stairW?half:len/2), hi=origin+len-(len>stairW?half:len/2);
-  coord=Math.max(lo,Math.min(hi,coord));                                 // keep stairs fully on the edge
-  const pos=len>0?Math.max(0,Math.min(1,(coord-origin)/len)):0.5;
+  const lo=es.lo+(L>stairW?half:L/2), hi=es.hi-(L>stairW?half:L/2);
+  coord=Math.max(lo,Math.min(hi,coord));                                 // keep stairs fully on the deck edge
+  const pos=L>0?Math.max(0,Math.min(1,(coord-es.lo)/L)):0.5;
   document.getElementById('stairSide').value=side;
   const pv=Math.round(pos*100); document.getElementById('stairPos').value=pv; document.getElementById('stairPosVal').textContent=pv;
 }
