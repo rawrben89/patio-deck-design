@@ -397,6 +397,8 @@
         <option value="homedepot">Home Depot Canada</option>
         <option value="patrickmorin">Patrick Morin</option>
       </select>
+      <button class="small ghost" style="width:100%;margin-top:10px" onclick="openProduct()">📦 Import a board from a photo</button>
+      <div class="hint" style="margin-top:5px">Snap the product label + “what’s included” (e.g. a Costco composite kit) → Claude reads the board size, pack count &amp; price and sets them here.</div>
       <details style="margin-top:10px">
         <summary>Edit unit prices (CAD, pre-tax)</summary>
         <div id="priceEditor"></div>
@@ -449,6 +451,28 @@
       <button class="ghost" onclick="closeAI()">Cancel</button>
     </div>
     <div class="hint" style="margin-top:8px">Note: browsers can't fetch arbitrary links directly, so paste the key specs from a link rather than relying on the URL alone. Photos work best taken straight-on.</div>
+  </div>
+</div>
+<div id="productModal" class="modal-bg" onclick="if(event.target===this)closeProduct()">
+  <div class="modal">
+    <h2 style="border:none;margin:0 0 4px"><span class="ic">📦</span> Import a board from a photo</h2>
+    <div class="hint" style="margin-bottom:10px">Upload a photo of the <b>product label / spec sheet</b> and (optionally) the <b>“what’s included”</b> panel. Claude reads the board width, length, pieces per pack, pack price and coverage, then adds it as a selectable board. Runs against the Anthropic API with your own key (stored only in this browser).</div>
+    <label>Anthropic API key <span class="muted">(from console.anthropic.com)</span></label>
+    <input type="password" id="prKey" placeholder="sk-ant-...">
+    <div class="row" style="margin-top:10px">
+      <label class="pill" style="cursor:pointer;display:inline-flex">📷 Product / label
+        <input type="file" id="prPhoto1" accept="image/*" onchange="loadProductPhoto(event,1)" style="width:0;height:0;opacity:0;position:absolute"></label>
+      <label class="pill" style="cursor:pointer;display:inline-flex">📷 What’s included
+        <input type="file" id="prPhoto2" accept="image/*" onchange="loadProductPhoto(event,2)" style="width:0;height:0;opacity:0;position:absolute"></label>
+    </div>
+    <div id="prPhotoName" class="muted" style="font-size:12px;margin-top:6px"></div>
+    <label style="margin-top:10px">Extra details / paste specs <span class="muted">(optional)</span></label>
+    <textarea id="prText" rows="2" placeholder="e.g. Costco composite deck kit, $XX / pack, covers XX sq ft…"></textarea>
+    <div id="prStatus" class="hint" style="margin-top:10px;min-height:18px"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" onclick="extractProduct()" id="prGo">✨ Read &amp; add product</button>
+      <button class="ghost" onclick="closeProduct()">Cancel</button>
+    </div>
   </div>
 </div>
 <div id="toast"></div>
@@ -526,7 +550,10 @@ const LS_KEY='patioDeckDesign.v2';
 
 /* ============================================================ STATE ============================================================ */
 let state={ material:'wood', profile:'54x6', dir:'length',
-  sections:[{id:1,x:6,y:6,w:16,h:12}], prices:structuredClone(DEFAULT_PRICES), photo:null };
+  sections:[{id:1,x:6,y:6,w:16,h:12}], prices:structuredClone(DEFAULT_PRICES), photo:null, customProfiles:[] };
+// all board profiles for a material = built-in + user-imported (from a product photo)
+function allProfiles(mat){ return MATERIALS[mat].profiles.concat((state.customProfiles||[]).filter(p=>p.mat===mat)); }
+function findProfile(id){ for(const m of ['wood','comp']){ const p=allProfiles(m).find(x=>x.id===id); if(p)return p; } return null; }
 let nextId=2, drawing=false, dragStart=null, dragCur=null, photoImg=null;
 let selId=null, moveOffset=null, resizing=null, stairDrag=false, collapsed={}, view3d=false;
 const CUR={nw:'nwse-resize',se:'nwse-resize',ne:'nesw-resize',sw:'nesw-resize',n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize'};
@@ -536,8 +563,8 @@ const DEF_AZ=-0.62, DEF_EL=0.56;
 /* ============================================================ UI BUILDERS ============================================================ */
 function buildProfileOptions(){
   const sel=document.getElementById('boardProfile'); sel.innerHTML='';
-  MATERIALS[state.material].profiles.forEach(p=>{ const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o); });
-  state.profile=MATERIALS[state.material].profiles[0].id; sel.value=state.profile;
+  allProfiles(state.material).forEach(p=>{ const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o); });
+  state.profile=allProfiles(state.material)[0].id; sel.value=state.profile;
 }
 function setMaterial(m){
   state.material=m;
@@ -588,7 +615,8 @@ function renderPriceEditor(){
   });
   box.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{ state.prices[e.target.dataset.pk].v=parseFloat(e.target.value)||0; recalc(); }));
 }
-function resetPrices(){ state.prices=structuredClone(DEFAULT_PRICES); renderPriceEditor(); recalc(); toast('Prices reset to defaults'); }
+function resetPrices(){ const custom={}; Object.keys(state.prices).forEach(k=>{ if(!(k in DEFAULT_PRICES))custom[k]=state.prices[k]; }); // keep imported-product prices
+  state.prices=Object.assign(structuredClone(DEFAULT_PRICES),custom); renderPriceEditor(); recalc(); toast('Prices reset to defaults'); }
 
 /* ============================================================ CANVAS ============================================================ */
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -730,7 +758,7 @@ function draw(){
   for(let gx=0;gx<cv.width;gx+=scale){const maj=Math.round(gx/scale)%5===0;ctx.strokeStyle=maj?'#223038':'#141d2288';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,cv.height);ctx.stroke();}
   for(let gy=0;gy<cv.height;gy+=scale){const maj=Math.round(gy/scale)%5===0;ctx.strokeStyle=maj?'#223038':'#141d2288';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(cv.width,gy);ctx.stroke();}
 
-  const face=(MATERIALS[state.material].profiles.find(p=>p.id===state.profile)||{face:5.5}).face;
+  const face=(findProfile(state.profile)||{face:5.5}).face;
   const gap=parseFloat(document.getElementById('gap').value)||0;
   const step=(face+gap)/12;
   state.sections.forEach((s,i)=>{
@@ -810,7 +838,7 @@ function draw3D(){
   ctx.fillStyle=grad; ctx.fillRect(0,0,cv.width,cv.height);
   const H=Math.max(0.6,parseFloat(g('deckHeight').value)||0.6), th=0.75;
   const comp=state.material==='comp';
-  const face=(MATERIALS[state.material].profiles.find(p=>p.id===state.profile)||{face:5.5}).face;
+  const face=(findProfile(state.profile)||{face:5.5}).face;
   const gap=parseFloat(g('gap').value)||0, step=(face+gap)/12;
   const hasRail=g('hasRail').checked, railStyle=g('railStyle').value;
   const railH=hasRail?(H>5.9?3.5:3):0;                       // 42″ guard on tall decks, else 36″
@@ -1117,7 +1145,7 @@ function unionMetrics(sections){
 /* ============================================================ TAKEOFF ENGINE ============================================================ */
 function computeBOQ(){
   const P=state.prices, items=[];
-  const add=(name,qty,priceKey,cat,tag,note)=>{ if(qty<=0)return; const p=P[priceKey]; items.push({name,qty,unit:p.v,unitLabel:p.unit,total:qty*p.v,cat,tag,search:p.search,note}); };
+  const add=(name,qty,priceKey,cat,tag,note)=>{ if(qty<=0)return; const p=P[priceKey]; if(!p)return; items.push({name,qty,unit:p.v,unitLabel:p.unit,total:qty*p.v,cat,tag,search:p.search,note}); };
 
   const g=id=>document.getElementById(id);
   const boardLen=parseFloat(g('boardLen').value);
@@ -1129,7 +1157,7 @@ function computeBOQ(){
   const footing=g('footing').value;
   const height=parseFloat(g('deckHeight').value)||0;
   const comp=state.material==='comp';
-  const prof=MATERIALS[state.material].profiles.find(p=>p.id===state.profile);
+  const prof=findProfile(state.profile)||MATERIALS[state.material].profiles[0];
   const tag=comp?'comp':'wood';
   const faceFt=(prof.face+gap)/12;
   const hasBorder=g('hasBorder').checked;
@@ -1337,7 +1365,7 @@ function recalc(){
 function collectInputs(){
   const g=id=>document.getElementById(id);
   return { material:state.material, profile:g('boardProfile').value, dir:state.dir, sections:state.sections,
-    prices:state.prices, photo:state.photo, collapsed,
+    prices:state.prices, photo:state.photo, collapsed, customProfiles:state.customProfiles,
     boardLen:g('boardLen').value, gap:g('gap').value, waste:g('waste').value, packSize:g('packSize').value,
     joistOC:g('joistOC').value, deckHeight:g('deckHeight').value, attached:g('attached').checked,
     postSpacing:g('postSpacing').value, footing:g('footing').value, hasStairs:g('hasStairs').checked,
@@ -1350,6 +1378,7 @@ function collectInputs(){
 }
 function applyInputs(d){
   state.material=d.material||'wood'; state.dir=d.dir||'length';
+  state.customProfiles=d.customProfiles||[];   // restore imported products before profiles are built
   state.sections=d.sections||state.sections; state.prices=Object.assign(structuredClone(DEFAULT_PRICES),d.prices||{});
   collapsed=d.collapsed||{}; nextId=Math.max(...state.sections.map(s=>s.id),1)+1;
   setMaterial(state.material);
@@ -1490,6 +1519,68 @@ const AI_PROMPT=`You are a deck-planning assistant. From the user's description 
 {"sections":[{"w":number_feet,"h":number_feet}],"material":"wood"|"comp","boardLenFt":8|10|12|16|20,"deckHeightFt":number,"joistOC":12|16|24,"attached":boolean,"hasStairs":boolean,"stairWidthFt":number,"riserHIn":number,"hasRail":boolean,"railStyle":"aluminum"|"wood"|"composite"|"glass"|"cable","hasBorder":boolean,"borderRows":1|2,"hasFascia":boolean,"hasSkirting":boolean,"hasHouse":boolean,"hasDrainage":boolean,"notes":"short summary of assumptions"}
 If a photo shows a deck, estimate its rectangular section sizes in feet. Description/details from user:
 `;
+/* ============================================================ IMPORT PRODUCT FROM PHOTO ============================================================ */
+let prImg={};
+const PRODUCT_PROMPT=`You are a building-materials assistant. From the photo(s) of a DECK BOARD product (store label, spec sheet, box, or a "what's included" panel) plus any text, extract the product's specs. Return ONLY one JSON object (no prose, no markdown fences). Widths in inches, lengths in feet, prices in CAD. Omit any field you truly cannot read. Schema:
+{
+ "productName": string,
+ "material": "wood" | "comp",          // composite/PVC/capped => "comp"; pressure-treated/cedar/wood => "wood"
+ "boardWidthIn": number,               // face width of ONE board, inches (e.g. 5.5)
+ "boardLengthFt": number,              // length of ONE board, feet (e.g. 16)
+ "piecesPerPack": number,              // boards per pack/kit (1 if sold singly)
+ "packPriceCAD": number,               // price of the whole pack/kit
+ "pricePerBoardCAD": number,           // per-board price if that is what's shown
+ "coverageSqftPerPack": number,        // sq ft one pack covers, if stated
+ "includes": [string],                 // kit contents: clips, screws, hidden fasteners, etc.
+ "notes": string
+}`;
+function openProduct(){ const m=document.getElementById('productModal'); document.getElementById('prKey').value=localStorage.getItem('anthropicKey')||''; document.getElementById('prStatus').textContent=''; prImg={}; document.getElementById('prPhotoName').textContent=''; m.classList.add('show'); }
+function closeProduct(){ document.getElementById('productModal').classList.remove('show'); }
+function loadProductPhoto(e,n){ const f=e.target.files[0]; if(!f)return; const rd=new FileReader();
+  rd.onload=()=>{ prImg[n]={type:f.type||'image/png',data:String(rd.result).split(',')[1],name:f.name};
+    document.getElementById('prPhotoName').textContent=Object.values(prImg).map(x=>'📎 '+x.name).join('   ·   '); };
+  rd.readAsDataURL(f); }
+async function extractProduct(){
+  const g=id=>document.getElementById(id);
+  const key=g('prKey').value.trim(), txt=g('prText').value.trim(), st=g('prStatus'), btn=g('prGo');
+  if(!key){ st.textContent='⚠️ Enter your Anthropic API key first.'; return; }
+  const imgs=Object.values(prImg);
+  if(!imgs.length && !txt){ st.textContent='⚠️ Add at least one photo or some details.'; return; }
+  localStorage.setItem('anthropicKey',key);
+  st.textContent='⏳ Reading the product…'; btn.disabled=true;
+  const content=[{type:'text',text:PRODUCT_PROMPT+'\n\nUser details: '+(txt||'(none — use the photos)')}];
+  imgs.forEach(im=>content.push({type:'image',source:{type:'base64',media_type:im.type,data:im.data}}));
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-opus-4-8',max_tokens:1200,messages:[{role:'user',content}]})});
+    if(!r.ok){ const t=await r.text(); st.textContent='❌ API error '+r.status+': '+t.slice(0,180); btn.disabled=false; return; }
+    const j=await r.json(); const out=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const s=out.indexOf('{'), e=out.lastIndexOf('}'); if(s<0||e<0) throw new Error('No JSON in response');
+    const msg=applyProduct(JSON.parse(out.slice(s,e+1)));
+    st.textContent='✅ '+msg; toast('Product added');
+    setTimeout(closeProduct,1600);
+  }catch(err){ st.textContent='❌ '+err.message; }
+  btn.disabled=false;
+}
+function applyProduct(d){
+  const mat=(d.material==='wood')?'wood':'comp';
+  const face=Math.max(1,+d.boardWidthIn||5.5), lenFt=+d.boardLengthFt||0;
+  const pieces=Math.max(1,Math.round(+d.piecesPerPack||1)), pack=+d.packPriceCAD||0;
+  let perBoard=+d.pricePerBoardCAD||0; if(!perBoard&&pack>0)perBoard=pack/pieces; if(!perBoard)perBoard=mat==='comp'?52:11;
+  const id='cust_'+Date.now(), pk='deck_'+id, nm=(d.productName||'Imported board').slice(0,42);
+  state.prices[pk]={label:nm+(pack>0?` — $${pack.toFixed(2)}/pack of ${pieces}`:''), unit:'/board', v:+perBoard.toFixed(2), search:(d.productName||'deck board')};
+  state.customProfiles.push({id,mat,name:`${nm} (${face}″)`,face,priceKey:pk});     // persists + shares
+  setMaterial(mat);
+  document.getElementById('boardProfile').value=id; state.profile=id;
+  if(lenFt){ const opt=[8,10,12,16,20].reduce((a,b)=>Math.abs(b-lenFt)<Math.abs(a-lenFt)?b:a,12); document.getElementById('boardLen').value=opt; }
+  if(mat==='comp'){ document.getElementById('packSize').value=pieces; document.getElementById('packWrap').style.display='block'; }
+  renderPriceEditor(); draw(); recalc();
+  const inc=(Array.isArray(d.includes)&&d.includes.length)?` Kit includes: ${d.includes.join(', ')}.`:'';
+  const cov=d.coverageSqftPerPack?` ~${d.coverageSqftPerPack} ft²/pack.`:'';
+  return `Added “${nm}” — ${face}″ wide${lenFt?`, ${lenFt}′`:''}, $${perBoard.toFixed(2)}/board${pieces>1?` (${pieces}/pack)`:''}.${cov}${inc} Adjust it under “Edit unit prices”.`;
+}
+
 function openAI(){ const m=document.getElementById('aiModal'); document.getElementById('aiKey').value=localStorage.getItem('anthropicKey')||''; document.getElementById('aiStatus').textContent=''; m.classList.add('show'); }
 function closeAI(){ document.getElementById('aiModal').classList.remove('show'); }
 function loadAIPhoto(e){ const f=e.target.files[0]; if(!f)return; aiImageType=f.type||'image/png'; const rd=new FileReader(); rd.onload=()=>{ aiImageData=String(rd.result).split(',')[1]; document.getElementById('aiPhotoName').textContent=f.name; }; rd.readAsDataURL(f); }
