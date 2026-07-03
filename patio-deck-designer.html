@@ -144,8 +144,9 @@
   .tot.big{font-size:22px;font-weight:800;border-top:1px solid var(--line2);padding-top:11px;margin-top:8px;letter-spacing:-.02em}
   .tot.big .v{color:var(--accent)}
 
-  .sec-item{display:flex;gap:6px;align-items:center;margin-bottom:7px;background:var(--bg2);border:1px solid var(--line);
+  .sec-item{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:7px;background:var(--bg2);border:1px solid var(--line);
     border-radius:8px;padding:6px 8px;transition:border-color .15s}
+  .sec-item .brk{flex-basis:100%;height:0}
   .sec-item.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(246,166,35,.12)}
   .sec-item .sw{width:13px;height:13px;border-radius:4px;flex:none}
   .sec-item input{padding:5px 7px;font-size:12px}
@@ -701,14 +702,15 @@ function renderSectionList(){
     const div=document.createElement('div'); div.className='sec-item'+(s.id===selId?' sel':'');
     const gh=parseFloat(document.getElementById('deckHeight').value)||0;
     div.innerHTML=`<span class="sw" style="background:${SECTION_COLORS[i%SECTION_COLORS.length]}"></span>
-      <input type="number" value="${s.w}" step="0.5" min="1" title="width" style="width:48px" data-id="${s.id}" data-k="w">
+      <input type="number" value="${s.w}" step="0.5" min="1" title="width" style="width:50px" data-id="${s.id}" data-k="w">
       <span class="muted">×</span>
-      <input type="number" value="${s.h}" step="0.5" min="1" title="length" style="width:48px" data-id="${s.id}" data-k="h">
+      <input type="number" value="${s.h}" step="0.5" min="1" title="length" style="width:50px" data-id="${s.id}" data-k="h">
       <span class="muted" style="font-size:11px">ft</span>
-      <span class="muted" style="font-size:11px;margin-left:4px">↕</span>
-      <input type="number" value="${s.z!=null?s.z:''}" placeholder="${gh}" step="0.5" min="0" title="height (blank = default)" style="width:48px" data-id="${s.id}" data-k="z">
-      <span class="muted" style="font-size:11px">h</span>
-      <button class="small danger" style="margin-left:auto" data-del="${s.id}">✖</button>`;
+      <button class="small danger" style="margin-left:auto" data-del="${s.id}" aria-label="Delete section">✖</button>
+      <div class="brk"></div>
+      <span class="muted" style="font-size:11px">↕ height</span>
+      <input type="number" value="${s.z!=null?s.z:''}" placeholder="${gh} (default)" step="0.5" min="0" title="height above grade (blank = deck default)" style="width:56px" data-id="${s.id}" data-k="z">
+      <span class="muted" style="font-size:11px">ft</span>`;
     box.appendChild(div);
   });
   box.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{
