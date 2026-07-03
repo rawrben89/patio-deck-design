@@ -16,12 +16,27 @@ framing, stairs, railing, fasteners, footings), and estimate cost with Quebec ta
 7. **💾 Save** to a `.json` file to reopen later, or **🖨️ Print / Save PDF** for a shopping list.
 
 ## What it calculates
-- **Decking**: area → rows (board face + gap) → linear feet + waste → boards → packs
-- **Framing**: joists at spacing O.C., doubled beam, ledger + flashing (if attached), rim joists,
-  6x6 posts + bases, footings (sonotube + concrete bags, or deck blocks), joist hangers
+- **Decking**: area → rows (board face + gap) → linear feet + waste → boards → packs.
+  Optional **45° diagonal** layout adds ~15% board.
+- **Framing (auto-sized)**: joists sized to the span (**2×6/2×8/2×10/2×12**, or forced) — beams are
+  added so each *bay* stays within the joist's allowable span, and the note reports the real per-bay
+  span (not the whole depth). Built-up beam is sized (2×8/2×10/2×12, 2- or 3-ply) to the tributary +
+  post spacing, and post spacing auto-tightens if the beam can't reach it. Ledger + flashing (if
+  attached), rim joists, blocking.
+- **Footings**: 6×6 posts + bases; sonotube **diameter (8/10/12″)** and **frost depth** drive the
+  concrete bag count (π·r²·depth) and tube count; or on-grade deck blocks.
 - **Fasteners**: deck screws (wood) or hidden fasteners (composite), structural screws
 - **Stairs**: step count from deck height ÷ riser, stringers, tread boards
 - **Railing**: exposed perimeter (house side auto-excluded if attached)
+- **Budget add-ons** (optional): labour ($/ft²), permit fee (untaxed), delivery, contingency % —
+  folded into the Québec-tax total.
+
+## Also
+- **⇄ ft / m** units toggle for dimensions & areas (Québec permit offices use metric).
+- **📐 Section** view — dimensioned side elevation (height, posts, footings, frost line) for a permit sketch.
+- **⚖ Compare** — wood vs composite side-by-side, including ~10-year staining upkeep for wood.
+- **📚 Saved** — keep several named designs in the browser.
+- **📋 Proposal / PDF** now embeds plan + 3D + section views.
 
 ## Important notes
 - **Prices are editable estimates** (2026 Quebec ballpark). Open *Edit unit prices* and adjust to

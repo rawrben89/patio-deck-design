@@ -217,9 +217,12 @@
     <div class="sub">Design it yourself · full material takeoff · Quebec pricing &amp; live stock links</div>
   </div>
   <div class="actions no-print">
+    <button class="small ghost" id="unitsBtn" onclick="toggleUnits()" title="Toggle feet / metric">⇄ ft</button>
+    <button class="small ghost" onclick="openCompare()" title="Wood vs composite">⚖ Compare</button>
     <button class="small ghost" onclick="openAI()">🤖 AI auto-fill</button>
     <button class="small primary" onclick="generateProposal()">📋 Proposal / PDF</button>
     <button class="small ghost" onclick="exportCSV()">📄 CSV</button>
+    <button class="small ghost" onclick="openSaves()">📚 Saved</button>
     <button class="small ghost" onclick="saveProject()">💾 Save</button>
     <button class="small ghost" onclick="document.getElementById('loadFile').click()">📂 Load</button>
     <button class="small ghost" onclick="shareState()">🔗 Share</button>
@@ -259,6 +262,7 @@
         <button class="on" data-dir="length" onclick="setDir('length')">↕ Along length</button>
         <button data-dir="width" onclick="setDir('width')">↔ Along width</button>
       </div>
+      <label class="chk" style="margin-top:8px"><input type="checkbox" id="diagonal"> 45° diagonal decking (adds ~15% waste)</label>
       <label>Waste allowance: <span id="wasteVal" style="color:var(--accent)">10</span>%</label>
       <input type="range" id="waste" min="0" max="25" value="10" step="1">
       <div id="packWrap" style="display:none">
@@ -277,6 +281,14 @@
           <input type="number" id="deckHeight" value="3" step="0.5" min="0">
         </div>
       </div>
+      <div class="row">
+        <div><label>Joist size</label>
+          <select id="joistSize"><option value="auto" selected>Auto (fit span)</option><option value="2x6">2×6</option><option value="2x8">2×8</option><option value="2x10">2×10</option><option value="2x12">2×12</option></select>
+        </div>
+        <div><label>Beam size</label>
+          <select id="beamSize"><option value="auto" selected>Auto (fit span)</option><option value="2x8">2×8 (2-ply)</option><option value="2x10">2×10 (2-ply)</option><option value="2x12">2×12 (2-ply)</option></select>
+        </div>
+      </div>
       <label class="chk"><input type="checkbox" id="attached" checked> Attached to house (ledger + flashing)</label>
       <label class="chk"><input type="checkbox" id="hasHouse" checked> Show house wall + patio sliding door</label>
       <div class="row">
@@ -284,6 +296,12 @@
         <div><label>Footing type</label>
           <select id="footing"><option value="block">Deck blocks</option><option value="sonotube" selected>Sonotube + concrete</option></select>
         </div>
+      </div>
+      <div class="row" id="footingSpecRow">
+        <div><label>Footing Ø (in)</label>
+          <select id="footingDia"><option value="8" selected>8″</option><option value="10">10″</option><option value="12">12″</option></select>
+        </div>
+        <div><label>Frost depth (ft)</label><input type="number" id="frostDepth" value="4.5" step="0.5" min="1"></div>
       </div>
       <label class="chk" style="margin-top:6px"><input type="checkbox" id="hasDrainage"> Under-deck drainage (dry space below · water drains off)</label>
     </div>
@@ -328,6 +346,19 @@
       <label class="chk" style="margin-top:12px"><input type="checkbox" id="hasFascia"> Fascia board (trim edge)</label>
       <label class="chk"><input type="checkbox" id="hasSkirting"> Skirting / lattice (hides under-deck)</label>
     </div>
+
+    <div class="grp">
+      <h2><span class="ic">💰</span> Budget add-ons (optional)</h2>
+      <div class="hint" style="margin-bottom:9px">Turn a materials estimate into an all-in budget. Left at 0 = materials only.</div>
+      <div class="row">
+        <div><label>Labour ($/ft²)</label><input type="number" id="labor" value="0" step="1" min="0"></div>
+        <div><label>Contingency (%)</label><input type="number" id="contingency" value="0" step="1" min="0"></div>
+      </div>
+      <div class="row">
+        <div><label>Permit fee ($)</label><input type="number" id="permitFee" value="0" step="5" min="0"></div>
+        <div><label>Delivery ($)</label><input type="number" id="delivery" value="0" step="5" min="0"></div>
+      </div>
+    </div>
   </div>
 
   <!-- ============ MID: CANVAS ============ -->
@@ -336,8 +367,9 @@
       <span class="pill">Scale <input type="number" id="scale" value="14" min="4" max="40" style="width:44px"> px/ft</span>
       <span class="pill">Snap <input type="number" id="snap" value="0.5" step="0.5" min="0" style="width:44px"> ft</span>
       <div class="seg" style="width:auto">
-        <button class="on" id="view2dBtn" onclick="setView(false)">▦ 2D plan</button>
-        <button id="view3dBtn" onclick="setView(true)">🧊 3D view</button>
+        <button class="on" id="view2dBtn" onclick="setView('plan')">▦ 2D plan</button>
+        <button id="view3dBtn" onclick="setView('3d')">🧊 3D view</button>
+        <button id="viewElevBtn" onclick="setView('elev')">📐 Section</button>
       </div>
       <button class="small" id="drawBtn" onclick="toggleDraw()">✏️ Draw: OFF</button>
       <button class="small ghost" id="undoBtn" title="Undo (Ctrl+Z)" onclick="undo()" disabled>↶</button>
@@ -385,7 +417,7 @@
       <div class="kpi"><div class="k">Deck area</div><div class="v" id="kpiArea">0<span class="u"> ft²</span></div></div>
       <div class="kpi"><div class="k">Decking boards</div><div class="v" id="kpiBoards">0</div></div>
       <div class="kpi"><div class="k">Total (taxes in)</div><div class="v accent" id="kpiTotal">$0</div></div>
-      <div class="kpi"><div class="k">Cost per ft²</div><div class="v" id="kpiPerSqft">$0</div></div>
+      <div class="kpi"><div class="k" id="kpiPerSqftLbl">Cost per ft²</div><div class="v" id="kpiPerSqft">$0</div></div>
     </div>
 
     <div class="grp">
@@ -420,9 +452,11 @@
    </div>
 
     <div class="totbar">
-      <div class="tot"><span>Subtotal</span><b id="subtotal">$0</b></div>
+      <div class="tot"><span>Materials</span><b id="subtotal">$0</b></div>
+      <div id="addonRows"></div>
       <div class="tot muted"><span>GST (5%)</span><span id="gst">$0</span></div>
       <div class="tot muted"><span>QST (9.975%)</span><span id="qst">$0</span></div>
+      <div class="tot muted" id="permitRow" style="display:none"><span>Permit (no tax)</span><span id="permitAmt">$0</span></div>
       <div class="tot big"><span>Total</span><span class="v" id="grandtotal">$0</span></div>
     </div>
   </div>
@@ -475,6 +509,25 @@
     </div>
   </div>
 </div>
+<div id="compareModal" class="modal-bg" onclick="if(event.target===this)closeCompare()">
+  <div class="modal" style="max-width:560px">
+    <h2 style="border:none;margin:0 0 4px"><span class="ic">⚖</span> Wood vs composite</h2>
+    <div class="hint" style="margin-bottom:12px">Same footprint &amp; framing, decking swapped. Composite costs more up front but needs no staining; wood needs re-sealing every ~2 years.</div>
+    <div id="compareBody"></div>
+    <div class="row" style="margin-top:14px"><button class="ghost" onclick="closeCompare()">Close</button></div>
+  </div>
+</div>
+<div id="savesModal" class="modal-bg" onclick="if(event.target===this)closeSaves()">
+  <div class="modal" style="max-width:480px">
+    <h2 style="border:none;margin:0 0 4px"><span class="ic">📚</span> Saved designs</h2>
+    <div class="hint" style="margin-bottom:10px">Stored in this browser. Save the current design under a name, or load/delete an earlier one.</div>
+    <div class="row" style="margin-bottom:12px">
+      <input type="text" id="saveName" placeholder="e.g. Backyard 16×12 composite">
+      <button class="primary" style="flex:0 0 auto" onclick="saveNamed()">💾 Save</button>
+    </div>
+    <div id="savesList"></div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -510,8 +563,13 @@ const DEFAULT_PRICES = {
   deck_comp_grooved:{label:'Composite grooved board', unit:'/board', v:52.0, search:'composite grooved deck board'},
   deck_comp_solid:{label:'Composite solid board',  unit:'/board', v:58.0, search:'composite square edge deck board'},
   deck_comp_narrow:{label:'Composite narrow board', unit:'/board', v:44.0, search:'composite narrow deck board'},
+  joist_2x6:      {label:'2x6 PT joist',           unit:'/board', v:10.5, search:'2 x 6 pressure treated'},
   joist_2x8:      {label:'2x8 PT joist',           unit:'/board', v:17.5, search:'2 x 8 pressure treated'},
-  beam_2x10:      {label:'2x10 PT (beam)',         unit:'/board', v:27.0, search:'2 x 10 pressure treated'},
+  joist_2x10:     {label:'2x10 PT joist',          unit:'/board', v:27.0, search:'2 x 10 pressure treated'},
+  joist_2x12:     {label:'2x12 PT joist',          unit:'/board', v:34.0, search:'2 x 12 pressure treated'},
+  beam_2x8:       {label:'2x8 PT (beam ply)',      unit:'/board', v:17.5, search:'2 x 8 pressure treated'},
+  beam_2x10:      {label:'2x10 PT (beam ply)',     unit:'/board', v:27.0, search:'2 x 10 pressure treated'},
+  beam_2x12:      {label:'2x12 PT (beam ply)',     unit:'/board', v:34.0, search:'2 x 12 pressure treated'},
   ledger_2x8:     {label:'2x8 PT ledger',          unit:'/board', v:17.5, search:'2 x 8 pressure treated'},
   post_6x6:       {label:'6x6 PT post (8ft)',      unit:'/post',  v:42.0, search:'6 x 6 pressure treated post'},
   hanger:         {label:'Joist hanger',           unit:'/ea',    v:1.95, search:'joist hanger 2x8'},
@@ -522,6 +580,8 @@ const DEFAULT_PRICES = {
   flashing:       {label:'Ledger flashing (10ft)', unit:'/ea',    v:19.0, search:'ledger flashing aluminum', covers:10},
   concrete_bag:   {label:'Concrete 30kg bag',      unit:'/bag',   v:7.5,  search:'concrete mix 30kg'},
   sonotube:       {label:'Sonotube 8" x 4ft',      unit:'/ea',    v:13.0, search:'sonotube 8 inch tube form'},
+  sonotube_10:    {label:'Sonotube 10" x 4ft',     unit:'/ea',    v:18.0, search:'sonotube 10 inch tube form'},
+  sonotube_12:    {label:'Sonotube 12" x 4ft',     unit:'/ea',    v:24.0, search:'sonotube 12 inch tube form'},
   deck_block:     {label:'Deck block',             unit:'/ea',    v:9.5,  search:'deck block pier'},
   stringer_2x12:  {label:'2x12 PT (stair stringer)',unit:'/board',v:34.0, search:'2 x 12 pressure treated'},
   rail_alum:      {label:'Railing — aluminum',     unit:'/ft',    v:22.0, search:'aluminum deck railing kit'},
@@ -537,6 +597,42 @@ const DEFAULT_PRICES = {
   downspout:      {label:'Drainage downspout / gutter kit',unit:'/kit',v:45.0,search:'deck drainage downspout kit'},
 };
 const RAIL_STYLES={rail_alum:'Aluminum', rail_wood:'PT wood picket', rail_comp:'Composite', rail_glass:'Glass panel', rail_cable:'Cable / horizontal'};
+
+/* ---- Structural sizing (conservative SPF #2 PT, 40 psf live · Québec/CWC-style deck values, ft) ---- */
+// allowable JOIST span by nominal size and spacing (O.C. inches). Deliberately conservative for wet exterior use.
+const JOIST_SPANS={
+  '2x6' :{12:8.5, 16:7.75,24:6.25},
+  '2x8' :{12:11.5,16:10.4,24:8.4},
+  '2x10':{12:14.5,16:13.1,24:10.7},
+  '2x12':{12:17.5,16:15.9,24:13.0},
+};
+const JOIST_ORDER=['2x6','2x8','2x10','2x12'];
+const JOIST_PRICE={'2x6':'joist_2x6','2x8':'joist_2x8','2x10':'joist_2x10','2x12':'joist_2x12'};
+const BEAM_PRICE ={'2x8':'beam_2x8','2x10':'beam_2x10','2x12':'beam_2x12'};
+// allowable BEAM (post) spacing (ft) for a 2-ply built-up beam, by beam size and the joist span it carries
+// (tributary ≈ joist span / 2). Rows keyed by joist span ft; interpolated. DCA6-style, conservative.
+const BEAM_2PLY={
+  '2x8' :{6:6.7, 8:5.8, 10:5.2, 12:4.7, 14:4.3, 16:4.0},
+  '2x10':{6:8.2, 8:7.1, 10:6.3, 12:5.8, 14:5.3, 16:5.0},
+  '2x12':{6:9.4, 8:8.2, 10:7.3, 12:6.7, 14:6.2, 16:5.8},
+};
+const BEAM_ORDER=['2x8','2x10','2x12'];
+function beamSpanAllow(size,joistSpan){ const t=BEAM_2PLY[size]; const keys=Object.keys(t).map(Number).sort((a,b)=>a-b);
+  const s=Math.max(keys[0],Math.min(keys[keys.length-1],joistSpan));
+  let lo=keys[0],hi=keys[keys.length-1]; for(let i=0;i<keys.length-1;i++){ if(s>=keys[i]&&s<=keys[i+1]){lo=keys[i];hi=keys[i+1];break;} }
+  const f=hi===lo?0:(s-lo)/(hi-lo); return t[lo]+f*(t[hi]-t[lo]); }
+// smallest joist that spans `span` ft at `oc` inches; null if even 2x12 can't
+function pickJoist(span,oc){ for(const sz of JOIST_ORDER){ if((JOIST_SPANS[sz][oc]||0)>=span) return sz; } return null; }
+// smallest 2-ply beam whose allowable post spacing >= desired, given joist span it carries; ply bump to 3 if needed
+function pickBeam(postSpacing,joistSpan){
+  for(const sz of BEAM_ORDER){ if(beamSpanAllow(sz,joistSpan)>=postSpacing) return {size:sz,ply:2}; }
+  for(const sz of BEAM_ORDER){ if(beamSpanAllow(sz,joistSpan)*1.15>=postSpacing) return {size:sz,ply:3}; }
+  return {size:'2x12',ply:3};   // best available; UI will warn to add a post
+}
+// concrete 30kg bag yields ≈ 0.0142 m³; sonotube volume for diameter (in) at depth (ft)
+const BAG_M3=0.0142;
+function footingBags(diaIn,depthFt){ const r=(diaIn*0.0254)/2, depth=depthFt*0.3048; const vol=Math.PI*r*r*depth; return Math.max(1,Math.ceil(vol/BAG_M3)); }
+const TUBE_PRICE={8:13.0,10:18.0,12:24.0};   // sonotube cost by diameter (in), ~4ft length
 
 const STORE_SEARCH = {
   canac:        q=>'https://www.canac.ca/en/search?q='+encodeURIComponent(q),
@@ -624,6 +720,10 @@ const SC=()=>parseFloat(document.getElementById('scale').value);
 const px=ft=>ft*SC(), toFt=p=>p/SC();
 const snapFt=v=>{const s=parseFloat(document.getElementById('snap').value)||0; return s>0?Math.round(v/s)*s:Math.round(v*100)/100;};
 const fmtFt=v=>{ let ft=Math.floor(v+1e-6), inch=Math.round((v-ft)*12); if(inch===12){ft++;inch=0;} return inch?`${ft}′${inch}″`:`${ft}′`; };
+let metric=false;
+const fmtLen=v=> metric ? (v*0.3048).toFixed(2)+' m' : fmtFt(v);       // units-aware length
+const fmtArea=v=> metric ? (v*0.092903).toFixed(1)+' m²' : v.toFixed(0)+' ft²';
+function toggleUnits(){ metric=!metric; document.getElementById('unitsBtn').textContent='⇄ '+(metric?'m':'ft'); draw(); recalc(); persist(); }
 function shadeHex(hex,f){ const m=hex.replace('#',''); const cl=x=>Math.max(0,Math.min(255,Math.round(x)));
   const r=cl(parseInt(m.slice(0,2),16)*f),g=cl(parseInt(m.slice(2,4),16)*f),b=cl(parseInt(m.slice(4,6),16)*f);
   return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join(''); }
@@ -638,15 +738,18 @@ function snapToNeighbors(s){
   if(dX!==null)s.x=Math.max(0,s.x+dX); if(dY!==null)s.y=Math.max(0,s.y+dY);
 }
 
-function setView(is3d){
-  view3d=is3d;
-  document.getElementById('view2dBtn').classList.toggle('on',!is3d);
-  document.getElementById('view3dBtn').classList.toggle('on',is3d);
-  if(is3d&&drawing)toggleDraw();
-  document.getElementById('view3dTools').style.display=is3d?'flex':'none';
+let elevView=false;
+function setView(mode){
+  if(mode===true)mode='3d'; if(mode===false)mode='plan';
+  view3d=(mode==='3d'); elevView=(mode==='elev');
+  document.getElementById('view2dBtn').classList.toggle('on',mode==='plan');
+  document.getElementById('view3dBtn').classList.toggle('on',mode==='3d');
+  document.getElementById('viewElevBtn').classList.toggle('on',mode==='elev');
+  if(mode!=='plan'&&drawing)toggleDraw();
+  document.getElementById('view3dTools').style.display=mode==='3d'?'flex':'none';
   const hint=document.getElementById('cvHint');
-  hint.style.display='';
-  hint.innerHTML=is3d?'Drag to orbit · click a section to select · edit or 🗑 delete':'Drag to draw · click a section to select &amp; move · Del to remove';
+  hint.style.display=mode==='elev'?'none':'';
+  hint.innerHTML=mode==='3d'?'Drag to orbit · click a section to select · edit or 🗑 delete':'Drag to draw · click a section to select &amp; move · Del to remove';
   draw(); updateSelEditor();
 }
 function rotate3D(deg){ az3d+=deg*Math.PI/180; draw(); }
@@ -679,11 +782,14 @@ function framingLayout(s){
   const g=id=>document.getElementById(id);
   const joistOCin=parseFloat(g('joistOC').value), joistOC=joistOCin/12;
   const attached=g('attached').checked, postSpacing=parseFloat(g('postSpacing').value)||6;
-  const JSPAN={12:11.5,16:10.4,24:8.4}[joistOCin]||10;
   const alongLen=state.dir==='length';                 // joists span the "across" dim, perpendicular to boards
   const across=alongLen?s.w:s.h, runLen=alongLen?s.h:s.w;
   const nJoist=Math.floor(runLen/joistOC)+1;
-  const nBeam=Math.max(1,Math.ceil(across/JSPAN)+(attached?0:1));
+  // bays sized so each joist bay fits the chosen (or auto) joist — matches the takeoff engine
+  const pref=g('joistSize').value; let bays;
+  if(pref==='auto'){ bays=1; while(bays<=8){ if(pickJoist(across/bays,joistOCin))break; bays++; } }
+  else { const allow=JOIST_SPANS[pref][joistOCin]||10; bays=Math.max(1,Math.ceil(across/allow)); }
+  const nBeam=attached?bays:bays+1;
   const beamPos=[]; if(attached){for(let i=1;i<=nBeam;i++)beamPos.push(across*i/nBeam);} else {for(let i=0;i<nBeam;i++)beamPos.push(nBeam>1?across*i/(nBeam-1):across/2);}
   return {alongLen,across,runLen,joistOC,nJoist,nBeam,beamPos,postSpacing,attached};
 }
@@ -729,11 +835,11 @@ function drawDims(U){
   // overall width (below)
   const wy=maxY+off;
   ctx.beginPath();ctx.moveTo(px(minX),px(maxY));ctx.lineTo(px(minX),px(wy+0.3));ctx.moveTo(px(maxX),px(maxY));ctx.lineTo(px(maxX),px(wy+0.3));ctx.stroke();
-  arrow(minX,wy,maxX,wy); label(fmtFt(maxX-minX),px((minX+maxX)/2),px(wy),false);
+  arrow(minX,wy,maxX,wy); label(fmtLen(maxX-minX),px((minX+maxX)/2),px(wy),false);
   // overall length (left)
   const hx=minX-off;
   ctx.beginPath();ctx.moveTo(px(minX),px(minY));ctx.lineTo(px(hx-0.3),px(minY));ctx.moveTo(px(minX),px(maxY));ctx.lineTo(px(hx-0.3),px(maxY));ctx.stroke();
-  arrow(hx,minY,hx,maxY); label(fmtFt(maxY-minY),px(hx),px((minY+maxY)/2),true);
+  arrow(hx,minY,hx,maxY); label(fmtLen(maxY-minY),px(hx),px((minY+maxY)/2),true);
   ctx.textBaseline='alphabetic';
 }
 // compass + afternoon-sun hint (screen-space, top-right). North = toward the house (−y / up)
@@ -747,6 +853,7 @@ function drawCompass(){
   ctx.restore();
 }
 function draw(){
+  if(elevView){drawElevation();return;}
   if(view3d){draw3D();return;}
   const scale=SC();
   ctx.clearRect(0,0,cv.width,cv.height);
@@ -772,9 +879,9 @@ function draw(){
     if(sel){ const H=[[s.x,s.y],[s.x+s.w/2,s.y],[s.x+s.w,s.y],[s.x+s.w,s.y+s.h/2],[s.x+s.w,s.y+s.h],[s.x+s.w/2,s.y+s.h],[s.x,s.y+s.h],[s.x,s.y+s.h/2]];
       H.forEach(([hx,hy])=>{ ctx.fillStyle='#fff'; ctx.strokeStyle=c; ctx.lineWidth=2; ctx.fillRect(px(hx)-5,px(hy)-5,10,10); ctx.strokeRect(px(hx)-5,px(hy)-5,10,10); }); }
     ctx.fillStyle='#eef3f6'; ctx.font='700 13px system-ui'; ctx.textAlign='center';
-    ctx.fillText(`${s.w}′ × ${s.h}′`, px(s.x+s.w/2), px(s.y+s.h/2)+4);
+    ctx.fillText(`${fmtLen(s.w)} × ${fmtLen(s.h)}`, px(s.x+s.w/2), px(s.y+s.h/2)+4);
     ctx.fillStyle=c; ctx.font='600 11px system-ui';
-    ctx.fillText(`${(s.w*s.h).toFixed(0)} ft²`, px(s.x+s.w/2), px(s.y+s.h/2)+20);
+    ctx.fillText(fmtArea(s.w*s.h), px(s.x+s.w/2), px(s.y+s.h/2)+20);
   });
   if(document.getElementById('hasBorder').checked){
     const rows=parseInt(document.getElementById('borderRows').value)||1, bw=rows*step;
@@ -1010,6 +1117,89 @@ function draw3D(){
   // legend
   document.getElementById('cvLegend').innerHTML=`3D preview · ${state.material==='comp'?'composite':'wood'} · ${H}′ high${hasRail?' · railing':''}${hasBorder?' · border':''}${hasHouse?' · house':''}${showFraming?' · <span style="color:#c56a1c">framing (x-ray)</span>':''} <span style="color:var(--muted2)">· drag to orbit</span>`;
 }
+/* dimensioned side SECTION / elevation — good for a permit sketch (height, posts, footings, frost line) */
+function drawElevation(){
+  const g=id=>document.getElementById(id);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const grad=ctx.createLinearGradient(0,0,0,cv.height); grad.addColorStop(0,'#0f151b'); grad.addColorStop(1,'#0b0f13');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,cv.width,cv.height);
+  const U=unionMetrics(state.sections);
+  const depth=Math.max(2,U.maxY-U.minY);                         // front-to-back run (ft)
+  const H=Math.max(0.3,parseFloat(g('deckHeight').value)||0);
+  const frost=parseFloat(g('frostDepth').value)||4.5;
+  const attached=g('attached').checked, hasRail=g('hasRail').checked;
+  const railH=hasRail?(H>5.9?3.5:3):0;
+  const hasStairs=g('hasStairs').checked && H>0.3;
+  const riser=parseFloat(g('riserH').value)||7.5, treads=hasStairs?Math.max(1,Math.round(H*12/riser)-1):0;
+  const stairRun=hasStairs?treads*(10.5/12):0;
+  const th=0.62;                                                 // deck slab thickness (ft, schematic)
+  const wxMin=-1.2, wxMax=depth+stairRun+1.2, wyMax=H+railH+0.7, wyMin=-(frost+0.7);
+  const padL=64,padR=26,padT=24,padB=30;
+  const s=Math.min((cv.width-padL-padR)/(wxMax-wxMin),(cv.height-padT-padB)/(wyMax-wyMin));
+  const ox=padL-wxMin*s, oy=cv.height-padB+wyMin*s;
+  const X=wx=>ox+wx*s, Y=wy=>oy-wy*s;
+  const rect=(x0,y0,x1,y1,fill,stroke,lw)=>{ctx.beginPath();ctx.rect(X(x0),Y(y1),(x1-x0)*s,(y1-y0)*s);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}};
+  const seg=(x0,y0,x1,y1,c,lw,dash)=>{ctx.setLineDash(dash||[]);ctx.strokeStyle=c;ctx.lineWidth=lw||1;ctx.beginPath();ctx.moveTo(X(x0),Y(y0));ctx.lineTo(X(x1),Y(y1));ctx.stroke();ctx.setLineDash([]);};
+  const comp=state.material==='comp';
+  const deckC=comp?'#9aa7b0':'#c88b4d';
+  // sky already filled; ground fill below grade
+  ctx.fillStyle='#171d16'; ctx.fillRect(X(wxMin),Y(0),(wxMax-wxMin)*s,(0-wyMin)*s);
+  // frost line
+  seg(wxMin,-frost,wxMax,-frost,'#5b78c4',1.4,[8,5]);
+  ctx.fillStyle='#8ba0d8';ctx.font='700 10px system-ui';ctx.textAlign='left';ctx.fillText(`❄ frost depth ≈ ${fmtLen(frost)}`,X(wxMin)+6,Y(-frost)-4);
+  // grade line
+  seg(wxMin,0,wxMax,0,'#4d6b3d',2);
+  ctx.fillStyle='#7fa06a';ctx.fillText('grade',X(wxMax)-40,Y(0)+14);
+  // house wall + ledger (attached) on the left
+  if(g('hasHouse').checked||attached){ rect(-1.2,0,-0.5,H+railH+0.4,'#c9ced8','#8b909a',1);
+    for(let z=0.7;z<H+railH;z+=0.85)seg(-1.2,z,-0.5,z,'#b0b6c1',0.7); }
+  if(attached){ rect(-0.5,H-th-0.3,-0.15,H-th+0.35,'#d1533a','#7c2f22',1);   // ledger
+    ctx.fillStyle='#e88'; ctx.font='700 9px system-ui'; }
+  // posts + footings
+  const postXs=[]; postXs.push(depth-0.8);                        // outer beam / front
+  if(!attached)postXs.push(0.8);                                  // freestanding: beam at house side too
+  const fdia=(parseFloat(g('footingDia').value)||8)/12;           // ft
+  const isBlock=g('footing').value==='block';
+  postXs.forEach(pxw=>{
+    if(isBlock){ rect(pxw-fdia*0.9,0,pxw+fdia*0.9,0.5,'#6b7178','#3a3f45',1); }   // deck block at grade
+    else { rect(pxw-fdia/2,-frost,pxw+fdia/2,0.15,'#5a5148','#2c2620',1);          // concrete pier
+           rect(pxw-fdia*0.85,-frost,pxw+fdia*0.85,-frost+0.35,'#4a423a','#241f19',1); } // footing pad
+    rect(pxw-0.25,isBlock?0.5:0.1,pxw+0.25,H-th,'#6b5d38','#332c1a',1);            // 6x6 post
+  });
+  // beam under deck (at outer)
+  rect(depth-1.15,H-th-0.55,depth-0.45,H-th+0.02,'#8a5a2b','#4a3016',1);
+  // deck slab
+  rect(0,H-th,depth,H,deckC,comp?'#7d8a94':'#a06f39',1.4);
+  ctx.fillStyle=comp?'#7d8a94':'#a06f39'; for(let x=0.5;x<depth;x+=0.55)seg(x,H,x,H-0.06,'#0004',0.6);   // board ends hint
+  // railing at front edge
+  if(hasRail){ const top=H+railH;
+    seg(depth,H,depth,top,'#c6cfd5',3); seg(depth-0.05,top,0.2,top,'#c6cfd5',2.4);   // top rail
+    seg(0.2,H+0.15,depth-0.05,H+0.15,'#aab4bb',1.4);
+    for(let x=0.4;x<depth;x+=0.4)seg(x,H+0.15,x,top,'#9aa2a8',0.8);
+    seg(0.2,H,0.2,top,'#c6cfd5',3);
+    dimV(depth+0.55,H,top,fmtLen(railH)+' rail',X,Y,s);
+  }
+  // stairs at front
+  if(hasStairs){ const stepH=H/treads, stepR=stairRun/treads;
+    for(let i=0;i<treads;i++){ const x0=depth+i*stepR, y0=H-i*stepH;
+      seg(x0,y0,x0+stepR,y0,'#d1a06a',2); seg(x0+stepR,y0,x0+stepR,y0-stepH,'#a06f39',1.6); }
+    seg(depth,H,depth+stairRun,0,'#7b4e26',2.4);   // stringer
+  }
+  // dimensions
+  dimV(-1.5,0,H,fmtLen(H)+' high',X,Y,s);
+  if(!isBlock)dimV(depth+stairRun+0.9,-frost,0,fmtLen(frost)+' footing',X,Y,s);
+  dimH(0,depth,H-th-0.9,fmtLen(depth)+' deep',X,Y,s);
+  document.getElementById('cvLegend').innerHTML=`Side section · ${comp?'composite':'wood'} deck · ${fmtLen(H)} high · ${attached?'ledger + 1 beam':'2 beams'} · footings ${isBlock?'on grade':fmtLen(frost)+' deep'} <span style="color:var(--muted2)">· for permit sketch only</span>`;
+}
+function dimV(wx,y0,y1,txt,X,Y,s){ ctx.strokeStyle='#5b6b76';ctx.lineWidth=1;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(X(wx),Y(y0));ctx.lineTo(X(wx),Y(y1));ctx.stroke();
+  [[y0,1],[y1,-1]].forEach(([yy,d])=>{ctx.beginPath();ctx.moveTo(X(wx),Y(yy));ctx.lineTo(X(wx)-4,Y(yy)+d*7);ctx.moveTo(X(wx),Y(yy));ctx.lineTo(X(wx)+4,Y(yy)+d*7);ctx.stroke();});
+  ctx.save();ctx.translate(X(wx)-6,(Y(y0)+Y(y1))/2);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font='700 10px system-ui';const w=ctx.measureText(txt).width+8;ctx.fillStyle='#0a0e11';ctx.fillRect(-w/2,-8,w,16);ctx.fillStyle='#c3d0d8';ctx.fillText(txt,0,0);ctx.restore();ctx.textBaseline='alphabetic'; }
+function dimH(x0,x1,wy,txt,X,Y,s){ ctx.strokeStyle='#5b6b76';ctx.lineWidth=1;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(X(x0),Y(wy));ctx.lineTo(X(x1),Y(wy));ctx.stroke();
+  [[x0,1],[x1,-1]].forEach(([xx,d])=>{ctx.beginPath();ctx.moveTo(X(xx),Y(wy));ctx.lineTo(X(xx)+d*7,Y(wy)-4);ctx.moveTo(X(xx),Y(wy));ctx.lineTo(X(xx)+d*7,Y(wy)+4);ctx.stroke();});
+  ctx.textAlign='center';ctx.font='700 10px system-ui';const w=ctx.measureText(txt).width+8;ctx.fillStyle='#0a0e11';ctx.fillRect((X(x0)+X(x1))/2-w/2,Y(wy)-8,w,16);ctx.fillStyle='#c3d0d8';ctx.fillText(txt,(X(x0)+X(x1))/2,Y(wy)+4); }
 function evtFt(e){
   const r=cv.getBoundingClientRect();
   return { x:snapFt(toFt((e.clientX-r.left)*(cv.width/r.width))), y:snapFt(toFt((e.clientY-r.top)*(cv.height/r.height))) };
@@ -1060,6 +1250,7 @@ cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);
   activePointers.set(e.pointerId,e); lastPtrType=e.pointerType||'mouse';
   if(activePointers.size===2){ startPinch(); orbit=null; dragStart=dragCur=null; resizing=null; stairDrag=false; moveOffset=null; return; }
+  if(elevView) return;                                    // section view is read-only
   if(view3d){ orbit={mx:e.clientX,my:e.clientY,az:az3d,el:el3d,moved:false}; return; }
   const pt=evtFt(e);
   if(drawing){ dragStart=pt; dragCur=pt; return; }
@@ -1073,6 +1264,7 @@ cv.addEventListener('pointerdown',e=>{
 cv.addEventListener('pointermove',e=>{
   if(activePointers.has(e.pointerId)) activePointers.set(e.pointerId,e);
   if(pinch){ doPinch(); return; }
+  if(elevView) return;
   if(view3d){ if(orbit){ const dx=e.clientX-orbit.mx, dy=e.clientY-orbit.my; if(Math.abs(dx)+Math.abs(dy)>3)orbit.moved=true; az3d=orbit.az+dx*0.01; el3d=Math.max(0.12,Math.min(1.45,orbit.el-dy*0.008)); draw(); } return; }
   if(drawing&&dragStart){ dragCur=evtFt(e); draw(); return; }
   if(resizing){ const s=state.sections.find(x=>x.id===resizing.id); resizeSection(s,resizing.handle,evtFt(e)); draw(); updateSelEditor(); return; }
@@ -1086,6 +1278,7 @@ function endPointer(e){
   activePointers.delete(e.pointerId);
   if(activePointers.size<2) pinch=null;
   if(activePointers.size>=1) return;   // fingers still down after a pinch — don't commit/select
+  if(elevView) return;
   if(view3d){ if(orbit&&!orbit.moved){ selId=pick3D(e); renderSectionList(); updateSelEditor(); draw(); } orbit=null; return; }
   if(drawing&&dragStart){
     const x=Math.min(dragStart.x,dragCur.x),y=Math.min(dragStart.y,dragCur.y),w=Math.abs(dragCur.x-dragStart.x),h=Math.abs(dragCur.y-dragStart.y);
@@ -1163,8 +1356,9 @@ function computeBOQ(){
   const hasBorder=g('hasBorder').checked;
   const borderRows=hasBorder?(parseInt(g('borderRows').value)||1):0;
   const borderW=borderRows*faceFt;
-  // allowable 2x8 SPF PT joist span (ft) by spacing — conservative exterior/wet values
-  const JOIST_SPAN={12:11.5,16:10.4,24:8.4}[joistOCin]||10;
+  const diagonal=g('diagonal').checked, diagMul=diagonal?1.15:1;   // 45° decking ~15% more board
+  const joistSizePref=g('joistSize').value, beamSizePref=g('beamSize').value;
+  const frostDepth=parseFloat(g('frostDepth').value)||4.5, footingDia=parseFloat(g('footingDia').value)||8;
 
   const U=unionMetrics(state.sections);
   const sumArea=state.sections.reduce((a,s)=>a+s.w*s.h,0);
@@ -1172,7 +1366,12 @@ function computeBOQ(){
   const exposed=attached?Math.max(0,U.perimeter-U.topEdge):U.perimeter;
 
   // ---------- per-section framing + field decking (whole-board row method) ----------
-  let fieldBoards=0, joistCount=0, joistLinFt=0, beamLinFt=0, beamLines=0, postCount=0, rimLinFt=0, blockingLinFt=0, maxSpan=0;
+  let fieldBoards=0, joistCount=0, postCount=0, maxSpan=0, effSpanMax=0, beamLinesTot=0, beamWarn=false, spanFail=false, postSpacingEff=postSpacing;
+  const joistBySize={}, rimBySize={}, blockBySize={}, beamByKey={};   // linear feet buckets
+  const bump=(m,k,v)=>m[k]=(m[k]||0)+v;
+  const heavier=(a,b)=>JOIST_ORDER.indexOf(a)>=JOIST_ORDER.indexOf(b)?a:b;
+  const heavierB=(a,b)=>BEAM_ORDER.indexOf(a)>=BEAM_ORDER.indexOf(b)?a:b;
+  let joistSizeUsed='2x6', beamUsed={size:'2x8',ply:2};
   const cutList=[]; let offcutLf=0;
   state.sections.forEach((s,idx)=>{
     const across=state.dir==='length'?s.w:s.h;   // joist length / rows dimension
@@ -1186,39 +1385,62 @@ function computeBOQ(){
       offcutLf+=rows*offRow;
       cutList.push({sec:idx+1,w:s.w,h:s.h,rows,perRow,boardLen,cutTo,offRow,run:+fRun.toFixed(1)});
     }
+    // ---- joist size + number of support bays so per-bay span fits the joist ----
+    let bays=1, jsize;
+    if(joistSizePref==='auto'){
+      jsize=null; while(bays<=8){ jsize=pickJoist(across/bays,joistOCin); if(jsize)break; bays++; }
+      if(!jsize){ jsize='2x12'; spanFail=true; }
+    } else {
+      jsize=joistSizePref; const allow=JOIST_SPANS[jsize][joistOCin]||10; bays=Math.max(1,Math.ceil(across/allow));
+      if(across/bays>allow+0.01) spanFail=true;
+    }
+    const effSpan=across/bays;
+    maxSpan=Math.max(maxSpan,across); effSpanMax=Math.max(effSpanMax,effSpan);
+    joistSizeUsed=heavier(joistSizeUsed,jsize);
     const nJoist=Math.floor(runLen/joistOC)+1;
-    joistCount+=nJoist; joistLinFt+=nJoist*across; maxSpan=Math.max(maxSpan,across);
-    const nBeam=Math.max(1,Math.ceil(across/JOIST_SPAN)+(attached?0:1)); // ledger counts as a support when attached
-    beamLines+=nBeam; beamLinFt+=nBeam*runLen*2;                        // 2-ply beams, length = runLen
-    postCount+=nBeam*Math.max(2,Math.floor(runLen/postSpacing)+1);
-    blockingLinFt+=Math.max(0,Math.round(across/6.5)-1)*(nJoist-1)*joistOC; // mid-span bridging
-    rimLinFt+=2*(s.w+s.h);
+    joistCount+=nJoist;
+    bump(joistBySize,jsize,nJoist*across);                                   // field joists
+    bump(rimBySize,jsize,2*(s.w+s.h));                                       // rim = joist depth
+    bump(blockBySize,jsize,Math.max(0,Math.round(across/6.5)-1)*(nJoist-1)*joistOC);
+    // ---- beams: attached needs `bays` beams (+ ledger); freestanding needs bays+1 ----
+    const nBeam=attached?bays:bays+1; beamLinesTot+=nBeam;
+    const bm=beamSizePref==='auto'?pickBeam(postSpacing,effSpan):{size:beamSizePref,ply:2};
+    const allowPS=beamSpanAllow(bm.size,effSpan)*(bm.ply>=3?1.15:1);
+    if(allowPS<postSpacing-0.05 && beamSizePref!=='auto') beamWarn=true;      // fixed beam can't reach posts
+    const effPS=Math.min(postSpacing,allowPS); postSpacingEff=Math.min(postSpacingEff,effPS);
+    beamUsed={size:heavierB(beamUsed.size,bm.size),ply:Math.max(beamUsed.ply,bm.ply)};
+    bump(beamByKey,bm.size+'|'+bm.ply,nBeam*runLen*bm.ply);                  // ply-count of stock
+    postCount+=nBeam*Math.max(2,Math.floor(runLen/effPS)+1);
   });
+  const joistSpanMax=JOIST_SPANS[joistSizeUsed][joistOCin]||10;
 
   // ---------- DECKING ----------
-  const deckBoards=Math.ceil(fieldBoards*waste);
-  let packNote=`${boardLen}ft boards`;
-  if(comp){ const ps=Math.max(1,parseFloat(g('packSize').value)||1); packNote=`${Math.ceil(deckBoards/ps)} pack(s) × ${ps}`; }
+  const deckBoards=Math.ceil(fieldBoards*waste*diagMul);
+  let packNote=`${boardLen}ft boards${diagonal?' · 45° diagonal':''}`;
+  if(comp){ const ps=Math.max(1,parseFloat(g('packSize').value)||1); packNote=`${Math.ceil(deckBoards/ps)} pack(s) × ${ps}${diagonal?' · 45°':''}`; }
   add(`Decking — ${prof.name}`, deckBoards, prof.priceKey,'decking',tag,packNote);
   if(hasBorder){
     let borderBoards=0; state.sections.forEach(s=>{ borderBoards+=borderRows*Math.ceil(2*(s.w+s.h)/boardLen); });
     add(`Picture-frame border (${borderRows}×)`, Math.ceil(borderBoards*waste), prof.priceKey,'decking',tag,`mitred perimeter border`);
-    add('Border blocking / doubler (2x8)', Math.ceil(exposed*1.05/boardLen),'joist_2x8','framing','wood','picture-frame support');
+    add(`Border blocking / doubler (${joistSizeUsed})`, Math.ceil(exposed*1.05/boardLen),JOIST_PRICE[joistSizeUsed],'framing','wood','picture-frame support');
   }
 
   // ---------- FRAMING ----------
-  add('Joists (2x8)', Math.ceil(joistLinFt*waste/boardLen),'joist_2x8','framing','wood',`${joistCount} joists · span ${maxSpan.toFixed(1)}′ (max ${JOIST_SPAN}′) · ${Math.round(joistLinFt)} lf`);
-  add('Beam material (2x10, 2-ply)', Math.ceil(beamLinFt*1.05/boardLen),'beam_2x10','framing','wood',`${beamLines} beam line(s) · ${Math.round(beamLinFt)} lf`);
-  if(blockingLinFt>0) add('Blocking / bridging (2x8)', Math.ceil(blockingLinFt*1.1/boardLen),'joist_2x8','framing','wood','mid-span, per code');
-  if(attached){ add('Ledger (2x8)', Math.ceil(U.topEdge*1.05/boardLen),'ledger_2x8','framing','wood',`${U.topEdge.toFixed(0)} ft on house`);
+  Object.entries(joistBySize).forEach(([sz,lf])=>{ if(lf>0) add(`Joists (${sz})`, Math.ceil(lf*waste/boardLen),JOIST_PRICE[sz],'framing','wood',`${joistCount} joists · bay span ${effSpanMax.toFixed(1)}′ / ${(JOIST_SPANS[sz][joistOCin]||0).toFixed(1)}′ max @ ${joistOCin}″ · ${Math.round(lf)} lf`); });
+  Object.entries(beamByKey).forEach(([k,lf])=>{ const [sz,ply]=k.split('|'); if(lf>0) add(`Beam material (${sz}, ${ply}-ply)`, Math.ceil(lf*1.05/boardLen),BEAM_PRICE[sz],'framing','wood',`${beamLinesTot} beam line(s) · ${Math.round(lf)} lf of stock`); });
+  Object.entries(blockBySize).forEach(([sz,lf])=>{ if(lf>0) add(`Blocking / bridging (${sz})`, Math.ceil(lf*1.1/boardLen),JOIST_PRICE[sz],'framing','wood','mid-span, per code'); });
+  if(attached){ add(`Ledger (${joistSizeUsed})`, Math.ceil(U.topEdge*1.05/boardLen),JOIST_PRICE[joistSizeUsed],'framing','wood',`${U.topEdge.toFixed(0)} ft on house`);
     add('Ledger flashing', Math.ceil(U.topEdge/P.flashing.covers),'flashing','framing','wood'); }
-  add('Rim / perimeter joists (2x8)', Math.ceil(rimLinFt*1.05/boardLen),'joist_2x8','framing','wood',`${Math.round(rimLinFt)} lf`);
+  Object.entries(rimBySize).forEach(([sz,lf])=>{ if(lf>0) add(`Rim / perimeter joists (${sz})`, Math.ceil(lf*1.05/boardLen),JOIST_PRICE[sz],'framing','wood',`${Math.round(lf)} lf`); });
 
   // ---------- FOOTINGS & POSTS ----------
-  add('Posts (6x6)', postCount*Math.max(1,Math.ceil((height+2)/8)),'post_6x6','footing','wood',`${postCount} posts · ${height}′ above grade`);
+  add('Posts (6x6)', postCount*Math.max(1,Math.ceil((height+2)/8)),'post_6x6','footing','wood',`${postCount} posts · ${fmtLen(height)} above grade · beams @ ~${fmtLen(postSpacingEff)}`);
   add('Post bases / brackets', postCount,'post_base','footing','wood');
-  if(footing==='sonotube'){ add('Sonotube forms', postCount,'sonotube','footing','wood','8″ — size up for tall/large decks');
-    add('Concrete (30kg bags)', postCount*3,'concrete_bag','footing','wood','≈3 bags/footing at QC frost depth (~1.5 m)'); }
+  if(footing==='sonotube'){
+    const tubeKey=footingDia>=12?'sonotube_12':footingDia>=10?'sonotube_10':'sonotube';
+    const tubesPer=Math.max(1,Math.ceil((frostDepth+0.5)/4)), bagsPer=footingBags(footingDia,frostDepth);
+    add(`Sonotube forms (${footingDia}″)`, postCount*tubesPer,tubeKey,'footing','wood',`${footingDia}″ Ø × ${fmtLen(frostDepth)} deep`);
+    add('Concrete (30kg bags)', postCount*bagsPer,'concrete_bag','footing','wood',`≈${bagsPer} bags/footing · ${footingDia}″ Ø to frost depth`); }
   else add('Deck blocks', postCount,'deck_block','footing','wood','on-grade only — not for frost-heave zones');
 
   // ---------- HARDWARE ----------
@@ -1272,7 +1494,20 @@ function computeBOQ(){
   // suggested board length = least decking waste (tie → fewer boards)
   const deckPlanFor=L=>{ let b=0,off=0; state.sections.forEach(s=>{ const ac=state.dir==='length'?s.w:s.h, rn=state.dir==='length'?s.h:s.w, fA=Math.max(0,ac-2*borderW), fR=Math.max(0,rn-2*borderW); if(fA>0&&fR>0){const rows=Math.ceil(fA/faceFt),perRow=Math.ceil(fR/L); b+=rows*perRow; off+=rows*(perRow*L-fR);} }); const lf=b*L; return {boardLen:L,boards:Math.ceil(b*waste),pct:lf>0?off/lf*100:0}; };
   let suggest=null; [8,10,12,16,20].forEach(L=>{ const p=deckPlanFor(L); if(!suggest||p.pct<suggest.pct-0.05||(Math.abs(p.pct-suggest.pct)<0.05&&p.boards<suggest.boards)) suggest=p; });
-  return {items, area:U.area, perimeter:U.perimeter, exposed, sides:U.sides, deckBoards, joistCount, postCount, beamLines, boardLen, stairInfo, stairSide, overlap, sumArea, maxSpan, joistSpanMax:JOIST_SPAN, cutList, offcutLf, wastePct, borderRows, faceIn:prof.face, suggest};
+
+  // ---------- BUDGET ADD-ONS (labour / permit / delivery / contingency) ----------
+  const matSubtotal=items.reduce((a,i)=>a+i.total,0);
+  const laborRate=parseFloat(g('labor').value)||0, permit=parseFloat(g('permitFee').value)||0;
+  const delivery=parseFloat(g('delivery').value)||0, contPct=parseFloat(g('contingency').value)||0;
+  const laborTotal=laborRate*U.area, contingency=(matSubtotal+laborTotal)*contPct/100;
+  const addons=[];
+  if(laborTotal>0)addons.push({name:'Labour',note:`$${laborRate}/ft² × ${U.area.toFixed(0)} ft²`,total:laborTotal});
+  if(delivery>0)addons.push({name:'Delivery',note:'material delivery',total:delivery});
+  if(contingency>0)addons.push({name:`Contingency (${contPct}%)`,note:'on materials + labour',total:contingency});
+  if(permit>0)addons.push({name:'Permit fee',note:'municipal · not taxed',total:permit,noTax:true});
+
+  return {items, area:U.area, perimeter:U.perimeter, exposed, sides:U.sides, deckBoards, joistCount, postCount, beamLines:beamLinesTot, boardLen, stairInfo, stairSide, overlap, sumArea, maxSpan, effSpanMax, joistSpanMax, joistSizeUsed, beamUsed, beamWarn, spanFail, postSpacingEff, diagonal, cutList, offcutLf, wastePct, borderRows, faceIn:prof.face, suggest,
+    matSubtotal, addons, laborTotal, permit, delivery, contingency};
 }
 
 /* ============================================================ RENDER ============================================================ */
@@ -1308,26 +1543,37 @@ function recalc(){
   });
   catList.querySelectorAll('.cat-head').forEach(h=>h.addEventListener('click',()=>{const k=h.dataset.cat;collapsed[k]=(collapsed[k]===false); h.parentElement.classList.toggle('collapsed',collapsed[k]!==false);}));
 
-  const gst=subtotal*0.05, qst=subtotal*0.09975, grand=subtotal+gst+qst;
+  // budget add-ons + Québec taxes (labour/delivery/contingency taxed; permit not)
+  const taxable=subtotal+r.laborTotal+r.delivery+r.contingency;
+  const gst=taxable*0.05, qst=taxable*0.09975, grand=taxable+gst+qst+r.permit;
   document.getElementById('subtotal').textContent=money(subtotal);
+  document.getElementById('addonRows').innerHTML=r.addons.filter(a=>!a.noTax).map(a=>`<div class="tot muted"><span>${a.name}</span><span>${money(a.total)}</span></div>`).join('');
   document.getElementById('gst').textContent=money(gst);
   document.getElementById('qst').textContent=money(qst);
+  const permitRow=document.getElementById('permitRow');
+  if(r.permit>0){ permitRow.style.display='flex'; document.getElementById('permitAmt').textContent=money(r.permit); } else permitRow.style.display='none';
   document.getElementById('grandtotal').textContent=money(grand);
 
-  document.getElementById('kpiArea').innerHTML=`${r.area.toFixed(0)}<span class="u"> ft²</span>`;
+  const perUnit=metric?0.092903:1, perLbl=metric?'m²':'ft²';
+  document.getElementById('kpiArea').innerHTML=`${(r.area*perUnit).toFixed(metric?1:0)}<span class="u"> ${perLbl}</span>`;
   document.getElementById('kpiBoards').textContent=r.deckBoards;
   document.getElementById('kpiTotal').textContent=money0(grand);
-  document.getElementById('kpiPerSqft').textContent=r.area>0?money(grand/r.area):'$0';
+  document.getElementById('kpiPerSqft').textContent=r.area>0?money(grand/(r.area*perUnit)):'$0';
+  const perSqLbl=document.getElementById('kpiPerSqftLbl'); if(perSqLbl)perSqLbl.textContent='Cost per '+perLbl;
 
   const warn=document.getElementById('warnBox');
   warn.innerHTML=r.overlap?`<div class="banner" style="background:#3a2a18;border-color:#5c4326;color:#ffdca8"><span class="ic">⚠️</span><div>Sections overlap — using true footprint of <b>${r.area.toFixed(0)} ft²</b> (not ${r.sumArea.toFixed(0)}). Move them apart on the canvas if that's not intended.</div></div>`:'';
 
-  const spanOK=r.maxSpan<=r.joistSpanMax;
+  // per-BAY span is what matters — beams are added to keep each bay within the joist's limit
+  const spanOK=r.effSpanMax<=r.joistSpanMax+0.01 && !r.spanFail;
   const joistDir=state.dir==='length'?'across the width':'across the length';
   const attached=document.getElementById('attached').checked;
+  const beamTxt=`${r.beamUsed.size} (${r.beamUsed.ply}-ply)`;
+  const psWarn = r.postSpacingEff < (parseFloat(document.getElementById('postSpacing').value)||6)-0.05;
   document.getElementById('structNote').innerHTML=
     `<div class="banner" style="background:#16242c;border-color:#274049;color:#bcd4de"><span class="ic">🧱</span><div>
-      <b>Suggested bottom framing:</b> 2×8 joists @ ${document.getElementById('joistOC').value}″ O.C. running ${joistDir}; span ${r.maxSpan.toFixed(1)}′ of ${r.joistSpanMax}′ allowed ${spanOK?'✅':'— <b style="color:#ffb454">too long: add a beam, drop to 24″→16″, or use 2×10</b>'}. Doubled 2×10 beam × ${r.beamLines} on 6×6 posts @ ${document.getElementById('postSpacing').value} ft → ${r.postCount} footing(s)${attached?', ledger on the house side':' (freestanding — beam each end)'}.
+      <b>Suggested bottom framing:</b> <b>${r.joistSizeUsed}</b> joists @ ${document.getElementById('joistOC').value}″ O.C. running ${joistDir}; longest bay <b>${r.effSpanMax.toFixed(1)}′</b> of ${r.joistSpanMax.toFixed(1)}′ allowed ${spanOK?'✅':'— <b style="color:#ffb454">still over: pick a deeper joist or tighter spacing</b>'}. Built-up <b>${beamTxt}</b> beam × ${r.beamLines} on 6×6 posts @ <b>${fmtLen(r.postSpacingEff)}</b>${psWarn?' <span style="color:#ffb454">(tightened from your setting so the beam carries the load)</span>':''} → ${r.postCount} footing(s)${attached?', ledger on the house side':' (freestanding — beam each end)'}.
+      ${r.beamWarn?'<b style="color:#ffb454"> Chosen beam can\'t span your post spacing — add posts or a deeper beam.</b>':''}
       ${r.stairInfo?`Stairs: ${r.stairInfo.risers} risers / ${r.stairInfo.treads} treads.`:''}
       <span style="color:#7fb0c4">Toggle <b>🧱 Framing</b> above the plan to see it drawn.</span>
     </div></div>`;
@@ -1374,7 +1620,10 @@ function collectInputs(){
     railStyle:g('railStyle').value, hasBorder:g('hasBorder').checked, borderRows:g('borderRows').value, view3d,
     hasHouse:g('hasHouse').checked, hasDrainage:g('hasDrainage').checked, stairSide:g('stairSide').value, stairPos:g('stairPos').value,
     railN:g('railN').checked, railS:g('railS').checked, railE:g('railE').checked, railW:g('railW').checked,
-    showFraming:g('showFraming').checked };
+    showFraming:g('showFraming').checked,
+    joistSize:g('joistSize').value, beamSize:g('beamSize').value, footingDia:g('footingDia').value, frostDepth:g('frostDepth').value,
+    diagonal:g('diagonal').checked, labor:g('labor').value, contingency:g('contingency').value, permitFee:g('permitFee').value, delivery:g('delivery').value,
+    metric };
 }
 function applyInputs(d){
   state.material=d.material||'wood'; state.dir=d.dir||'length';
@@ -1384,12 +1633,14 @@ function applyInputs(d){
   setMaterial(state.material);
   if(d.profile){document.getElementById('boardProfile').value=d.profile;state.profile=d.profile;}
   setDir(state.dir);
-  ['boardLen','gap','waste','packSize','joistOC','deckHeight','postSpacing','footing','stairWidth','riserH','store','scale','railStyle','borderRows','stairSide','stairPos'].forEach(k=>{if(d[k]!=null)document.getElementById(k).value=d[k];});
-  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
+  ['boardLen','gap','waste','packSize','joistOC','deckHeight','postSpacing','footing','stairWidth','riserH','store','scale','railStyle','borderRows','stairSide','stairPos','joistSize','beamSize','footingDia','frostDepth','labor','contingency','permitFee','delivery'].forEach(k=>{if(d[k]!=null)document.getElementById(k).value=d[k];});
+  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming','diagonal'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
+  metric=!!d.metric; document.getElementById('unitsBtn').textContent='⇄ '+(metric?'m':'ft');
   document.getElementById('packWrap').style.display=state.material==='comp'?'block':'none';
   document.getElementById('borderRowWrap').style.display=document.getElementById('hasBorder').checked?'flex':'none';
+  document.getElementById('footingSpecRow').style.display=document.getElementById('footing').value==='block'?'none':'flex';
   document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
-  if(d.view3d)setView(true);
+  if(d.view3d)setView('3d');
   document.getElementById('wasteVal').textContent=document.getElementById('waste').value;
   if(d.photo){photoImg=new Image();photoImg.onload=draw;photoImg.src=d.photo;state.photo=d.photo;}
   renderSectionList(); renderPriceEditor(); draw(); recalc();
@@ -1409,7 +1660,13 @@ function generateProposal(){
   if(!lastBOQ){recalc();}
   const r=lastBOQ, store=document.getElementById('store').value, g=id=>document.getElementById(id);
   const client=(prompt('Client / project name for the proposal (optional):','')||'').trim();
-  draw(); let img=''; try{img=cv.toDataURL('image/png');}catch(e){}
+  // capture plan + 3D + section snapshots for the proposal
+  const sv3d=view3d, svElev=elevView;
+  let imgPlan='',img3d='',imgElev='';
+  try{ view3d=false;elevView=false;draw(); imgPlan=cv.toDataURL('image/png');
+       view3d=true;elevView=false;draw(); img3d=cv.toDataURL('image/png');
+       view3d=false;elevView=true;draw(); imgElev=cv.toDataURL('image/png'); }catch(e){}
+  view3d=sv3d; elevView=svElev; draw();
   const groups={}; r.items.forEach(it=>{(groups[it.cat]=groups[it.cat]||[]).push(it);});
   let subtotal=0, rowsHTML='';
   Object.keys(CAT).sort((a,b)=>CAT[a].order-CAT[b].order).forEach(k=>{
@@ -1420,7 +1677,9 @@ function generateProposal(){
   let cutRows='';
   r.cutList.forEach(c=>{ const cutTxt=c.perRow===1?(Math.abs(c.cutTo-c.boardLen)<0.05?`full ${c.boardLen}′ (no cut)`:`cut to ${c.cutTo}′`):`${c.perRow-1}× full + 1× ${c.cutTo}′`;
     cutRows+=`<tr class="item"><td>${c.w}′×${c.h}′</td><td class="r">${c.rows}</td><td class="r">${c.perRow}</td><td class="r">${cutTxt}</td><td class="r">${c.offRow>0.05?c.offRow+'′':'0'}</td></tr>`; });
-  const gst=subtotal*0.05, qst=subtotal*0.09975, grand=subtotal+gst+qst;
+  const taxable=subtotal+r.laborTotal+r.delivery+r.contingency;
+  const gst=taxable*0.05, qst=taxable*0.09975, grand=taxable+gst+qst+r.permit;
+  const addonRowsHTML=r.addons.filter(a=>!a.noTax).map(a=>`<div class="row mut"><span>${a.name}</span><span>${money(a.total)}</span></div>`).join('');
   const mat=MATERIALS[state.material].label, dims=state.sections.map(s=>`${s.w}′×${s.h}′`).join(' + ');
   const today=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
   const perFt=r.area>0?money(grand/r.area):'$0';
@@ -1483,19 +1742,24 @@ function generateProposal(){
         <div class="card"><div class="k">Footprint</div><div class="v">${dims}</div></div>
         <div class="card"><div class="k">Decking material</div><div class="v">${mat}</div></div>
         <div class="card"><div class="k">Decking boards</div><div class="v">${r.deckBoards} × ${r.boardLen}′</div></div>
-        <div class="card"><div class="k">Framing</div><div class="v">2×8 @ ${g('joistOC').value}″ · ${r.beamLines} beam(s)</div></div>
+        <div class="card"><div class="k">Framing</div><div class="v">${r.joistSizeUsed} @ ${g('joistOC').value}″ · ${r.beamUsed.size} ${r.beamUsed.ply}-ply beam ×${r.beamLines}</div></div>
         <div class="card"><div class="k">Footings</div><div class="v">${r.postCount}</div></div>
         <div class="card"><div class="k">Height</div><div class="v">${g('deckHeight').value} ft</div></div>
         ${r.stairInfo?`<div class="card"><div class="k">Stairs</div><div class="v">${r.stairInfo.risers} risers · ${r.stairInfo.treads} treads</div></div>`:'<div class="card"><div class="k">Stairs</div><div class="v">—</div></div>'}
         <div class="card"><div class="k">Railing (exposed)</div><div class="v">${r.exposed.toFixed(0)} ft</div></div>
       </div>
-      ${img?`<div class="snapwrap"><img class="snap" src="${img}"><div class="cap">Design preview — ${view3d?'3D view':'plan view'}</div></div>`:''}
+      ${imgPlan?`<div class="snapwrap"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><img class="snap" src="${imgPlan}"><div class="cap">Plan view</div></div>
+        <div><img class="snap" src="${img3d}"><div class="cap">3D preview</div></div></div>
+        ${imgElev?`<div style="margin-top:12px"><img class="snap" src="${imgElev}"><div class="cap">Side section — height, posts &amp; footings</div></div>`:''}</div>`:''}
       <h2 class="sec">Materials &amp; cost breakdown</h2>
       <table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Unit price</th><th class="r">Amount</th></tr></thead><tbody>${rowsHTML}</tbody></table>
       <div class="totrow"><div class="totbox">
-        <div class="row"><span>Subtotal</span><b>${money(subtotal)}</b></div>
+        <div class="row"><span>Materials</span><b>${money(subtotal)}</b></div>
+        ${addonRowsHTML}
         <div class="row mut"><span>GST (5%)</span><span>${money(gst)}</span></div>
         <div class="row mut"><span>QST (9.975%)</span><span>${money(qst)}</span></div>
+        ${r.permit>0?`<div class="row mut"><span>Permit (no tax)</span><span>${money(r.permit)}</span></div>`:''}
         <div class="row grand"><span>Total</span><span class="amt">${money(grand)}</span></div>
       </div></div>
       <h2 class="sec" style="margin-top:26px">🪚 Board cut list &amp; offcuts</h2>
@@ -1684,19 +1948,76 @@ function codeCheck(r){
   // Footings / frost
   const block=g('footing').value==='block';
   li(!block||heightFt<=1, `Footings must bear <b>below the frost line</b> — typically <b>1.2–1.5 m (4–5 ft)</b> in Québec (varies by municipality). ${block?'Deck blocks sit on grade → floating/ground-level decks only, not frost-protected.':'Sonotubes must reach frost depth.'}`);
-  // Joist span
-  li(r.maxSpan<=r.joistSpanMax, `Joist span <b>${r.maxSpan.toFixed(1)}′</b> vs <b>${r.joistSpanMax}′</b> max for 2×8 @ ${g('joistOC').value}″ O.C.`);
+  // Joist span (per bay — beams break the run into bays)
+  li(r.effSpanMax<=r.joistSpanMax+0.01 && !r.spanFail, `Longest joist bay <b>${r.effSpanMax.toFixed(1)}′</b> vs <b>${r.joistSpanMax.toFixed(1)}′</b> max for <b>${r.joistSizeUsed}</b> @ ${g('joistOC').value}″ O.C.${r.spanFail?' — deepen joists or add a beam.':''}`);
   // Ledger
   if(g('attached').checked) li('info','Attached deck: fasten the <b>ledger</b> with lag/through-bolts + flashing (not nails), and use joist hangers.');
   return `<div class="grp code-grp"><h2><span class="ic">📐</span> Code check <span class="cc-note">Québec / CNB — planning guidance, not a permit</span></h2>${rows.join('')}
     <div class="hint" style="margin-top:8px">Summarizes the Code de construction du Québec / National Building Code for planning only. Most decks need a <b>municipal permit</b> — always confirm locally.</div></div>`;
 }
 
+/* ============================================================ WOOD vs COMPOSITE COMPARE ============================================================ */
+function boqTotalFor(mat){
+  const sMat=state.material, sProf=state.profile;
+  state.material=mat; state.profile=allProfiles(mat)[0].id;
+  const r=computeBOQ();
+  state.material=sMat; state.profile=sProf;
+  const taxable=r.matSubtotal+r.laborTotal+r.delivery+r.contingency;
+  const grand=taxable*1.14975+r.permit;
+  const deckCost=r.items.filter(i=>i.cat==='decking').reduce((a,i)=>a+i.total,0);
+  return {r,grand,deckCost,boards:r.deckBoards,area:r.area};
+}
+function openCompare(){
+  const g=id=>document.getElementById(id);
+  const W=boqTotalFor('wood'), C=boqTotalFor('comp');
+  const area=W.area||1;
+  const sealPrice=(state.prices.sealant||{v:48}).v, cansPer=Math.max(1,Math.ceil(area*2/350));
+  const woodUpkeep=cansPer*sealPrice*5;   // ~5 re-seals over 10 yr
+  const per=metric?0.092903:1, perLbl=metric?'m²':'ft²';
+  const col=(t,d)=>`<div style="flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px">
+      <div style="font-weight:800;font-size:13px;margin-bottom:8px">${t}</div>${d}</div>`;
+  const row=(k,v)=>`<div class="tot" style="font-size:12.5px"><span class="muted">${k}</span><b>${v}</b></div>`;
+  const wBody=row('Decking',money(W.deckCost))+row('Boards',W.boards)+row('Total (taxes in)',money0(W.grand))+row('Per '+perLbl,money(W.grand/(area*per)))+row('10-yr upkeep (stain)','~'+money0(woodUpkeep));
+  const cBody=row('Decking',money(C.deckCost))+row('Boards',C.boards)+row('Total (taxes in)',money0(C.grand))+row('Per '+perLbl,money(C.grand/(area*per)))+row('10-yr upkeep','~$0');
+  const diff=C.grand-W.grand, life10W=W.grand+woodUpkeep, life10C=C.grand;
+  g('compareBody').innerHTML=`<div style="display:flex;gap:11px;flex-wrap:wrap">${col('🌲 PT Wood',wBody)}${col('🧱 Composite',cBody)}</div>
+    <div class="banner" style="margin:13px 0 0"><span class="ic">💡</span><div>Composite is <b>${money0(Math.abs(diff))} ${diff>=0?'more':'less'}</b> up front. Factoring ~10 years of wood re-sealing, lifetime cost is roughly <b>${money0(life10W)}</b> (wood) vs <b>${money0(life10C)}</b> (composite). Prices are your editable estimates.</div></div>`;
+  g('compareModal').classList.add('show');
+}
+function closeCompare(){ document.getElementById('compareModal').classList.remove('show'); }
+
+/* ============================================================ NAMED SAVES (multiple designs in this browser) ============================================================ */
+const SAVES_KEY='patioDeckDesign.saves';
+function getSaves(){ try{ return JSON.parse(localStorage.getItem(SAVES_KEY)||'[]'); }catch(e){ return []; } }
+function putSaves(a){ try{ localStorage.setItem(SAVES_KEY,JSON.stringify(a)); }catch(e){ toast('Storage full — remove a saved design'); } }
+function openSaves(){ document.getElementById('saveName').value=''; renderSaves(); document.getElementById('savesModal').classList.add('show'); }
+function closeSaves(){ document.getElementById('savesModal').classList.remove('show'); }
+function saveNamed(){
+  const nm=(document.getElementById('saveName').value||'').trim(); if(!nm){ toast('Name your design first'); return; }
+  const saves=getSaves(); const data=collectInputs();
+  const i=saves.findIndex(s=>s.name.toLowerCase()===nm.toLowerCase());
+  const entry={name:nm,ts:Date.now(),data};
+  if(i>=0)saves[i]=entry; else saves.push(entry);
+  putSaves(saves); renderSaves(); toast('Saved “'+nm+'”');
+}
+function renderSaves(){
+  const box=document.getElementById('savesList'), saves=getSaves().sort((a,b)=>b.ts-a.ts);
+  if(!saves.length){ box.innerHTML='<div class="hint">No saved designs yet.</div>'; return; }
+  box.innerHTML=saves.map(s=>{ const d=new Date(s.ts).toLocaleDateString('en-CA');
+    return `<div class="sec-item" style="justify-content:space-between">
+      <div style="flex:1;min-width:0"><div class="nm" style="font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div><div class="meta" style="font-size:10.5px;color:var(--muted2)">${d}</div></div>
+      <button class="small" data-load="${s.name.replace(/"/g,'&quot;')}">Load</button>
+      <button class="small danger" data-del="${s.name.replace(/"/g,'&quot;')}">✖</button></div>`; }).join('');
+  box.querySelectorAll('[data-load]').forEach(b=>b.addEventListener('click',()=>{ const s=getSaves().find(x=>x.name===b.dataset.load); if(s){ applyInputs(s.data); closeSaves(); toast('Loaded “'+s.name+'”'); } }));
+  box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ putSaves(getSaves().filter(x=>x.name!==b.dataset.del)); renderSaves(); }));
+}
+
 /* ============================================================ WIRE UP ============================================================ */
-['boardProfile','boardLen','gap','joistOC','deckHeight','attached','hasHouse','postSpacing','footing','hasDrainage','hasStairs','stairWidth','riserH','stairSide','stairPos','hasRail','railStyle','railN','railS','railE','railW','hasBorder','borderRows','hasFascia','hasSkirting','store','packSize'].forEach(id=>{
+['boardProfile','boardLen','gap','joistOC','deckHeight','attached','hasHouse','postSpacing','footing','hasDrainage','hasStairs','stairWidth','riserH','stairSide','stairPos','hasRail','railStyle','railN','railS','railE','railW','hasBorder','borderRows','hasFascia','hasSkirting','store','packSize','joistSize','beamSize','footingDia','frostDepth','diagonal','labor','contingency','permitFee','delivery'].forEach(id=>{
   document.getElementById(id).addEventListener('input',()=>{
     if(id==='boardProfile')state.profile=document.getElementById(id).value;
     if(id==='hasBorder')document.getElementById('borderRowWrap').style.display=document.getElementById('hasBorder').checked?'flex':'none';
+    if(id==='footing')document.getElementById('footingSpecRow').style.display=document.getElementById('footing').value==='block'?'none':'flex';
     if(id==='stairPos')document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
     draw(); recalc();
   });
