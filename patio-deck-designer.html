@@ -220,7 +220,6 @@
     <button class="small ghost" id="unitsBtn" onclick="toggleUnits()" title="Toggle feet / metric">⇄ ft</button>
     <button class="small ghost" id="docLangBtn" onclick="toggleDocLang()" title="Language for the proposal / permit documents">🌐 EN</button>
     <button class="small ghost" onclick="openCompare()" title="Wood vs composite">⚖ Compare</button>
-    <button class="small ghost" onclick="openAI()">🤖 AI auto-fill</button>
     <button class="small primary" onclick="generateProposal()">📋 Proposal / PDF</button>
     <button class="small ghost" onclick="generatePermit()">🏛 Permit sheet</button>
     <button class="small ghost" onclick="exportCSV()">📄 CSV</button>
@@ -482,26 +481,6 @@
   <div>Estimator only — not engineered plans. Verify quantities, spans, footing depth (frost line), ledger attachment, and stair/railing geometry against the <b>Quebec building code &amp; RBQ</b>, and get a permit before building. Prices/stock change daily — confirm at the store.</div>
 </div>
 
-<div id="aiModal" class="modal-bg" onclick="if(event.target===this)closeAI()">
-  <div class="modal">
-    <h2 style="border:none;margin:0 0 4px"><span class="ic">🤖</span> AI auto-fill from photo or details</h2>
-    <div class="hint" style="margin-bottom:10px">Upload a photo of a deck and/or paste a description or a product/plan link. Claude reads it and fills in the whole plan (you can still tweak afterward). Runs against the Anthropic API with your own key — the key is stored only in this browser.</div>
-    <label>Anthropic API key <span class="muted">(from console.anthropic.com)</span></label>
-    <input type="password" id="aiKey" placeholder="sk-ant-...">
-    <label style="margin-top:10px">Describe the deck / paste details or a link</label>
-    <textarea id="aiText" rows="4" placeholder="e.g. 16x12 composite deck, 3 ft high, stairs on the front, aluminum railing, picture-frame border… or paste a link and the specs you copied."></textarea>
-    <label class="pill" style="margin-top:10px;cursor:pointer;display:inline-flex">📷 Deck photo
-      <input type="file" id="aiPhoto" accept="image/*" onchange="loadAIPhoto(event)" style="width:0;height:0;opacity:0;position:absolute">
-    </label>
-    <span id="aiPhotoName" class="muted" style="font-size:12px;margin-left:8px"></span>
-    <div id="aiStatus" class="hint" style="margin-top:10px;min-height:18px"></div>
-    <div class="row" style="margin-top:12px">
-      <button class="primary" onclick="extractWithAI()" id="aiGo">✨ Extract &amp; apply</button>
-      <button class="ghost" onclick="closeAI()">Cancel</button>
-    </div>
-    <div class="hint" style="margin-top:8px">Note: browsers can't fetch arbitrary links directly, so paste the key specs from a link rather than relying on the URL alone. Photos work best taken straight-on.</div>
-  </div>
-</div>
 <div id="productModal" class="modal-bg" onclick="if(event.target===this)closeProduct()">
   <div class="modal">
     <h2 style="border:none;margin:0 0 4px"><span class="ic">📦</span> Import a board from a photo</h2>
@@ -2129,12 +2108,6 @@ function generatePermit(){
   const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to open the permit sheet');return;}
   w.document.write(html); w.document.close(); toast('Permit sheet generated');
 }
-/* ============================================================ AI AUTO-FILL (optional; uses Anthropic API) ============================================================ */
-let aiImageData=null, aiImageType='image/png';
-const AI_PROMPT=`You are a deck-planning assistant. From the user's description and/or the photo, infer patio deck specifications and return ONLY a single JSON object (no prose, no markdown fences). Use best estimates in FEET/INCHES; omit fields you truly can't infer. Schema:
-{"sections":[{"w":number_feet,"h":number_feet}],"material":"wood"|"comp","boardLenFt":8|10|12|16|20,"deckHeightFt":number,"joistOC":12|16|24,"attached":boolean,"hasStairs":boolean,"stairWidthFt":number,"riserHIn":number,"hasRail":boolean,"railStyle":"aluminum"|"wood"|"composite"|"glass"|"cable","hasBorder":boolean,"borderRows":1|2,"hasFascia":boolean,"hasSkirting":boolean,"hasHouse":boolean,"hasDrainage":boolean,"notes":"short summary of assumptions"}
-If a photo shows a deck, estimate its rectangular section sizes in feet. Description/details from user:
-`;
 /* ============================================================ IMPORT PRODUCT FROM PHOTO ============================================================ */
 let prImg={};
 const PRODUCT_PROMPT=`You are a building-materials assistant. From the photo(s) of a DECK BOARD product (store label, spec sheet, box, or a "what's included" panel) plus any text, extract the product's specs. Return ONLY one JSON object (no prose, no markdown fences). Widths in inches, lengths in feet, prices in CAD. Omit any field you truly cannot read. Schema:
@@ -2197,54 +2170,6 @@ function applyProduct(d){
   return `Added “${nm}” — ${face}″ wide${lenFt?`, ${lenFt}′`:''}, $${perBoard.toFixed(2)}/board${pieces>1?` (${pieces}/pack)`:''}.${cov}${inc} Adjust it under “Edit unit prices”.`;
 }
 
-function openAI(){ const m=document.getElementById('aiModal'); document.getElementById('aiKey').value=localStorage.getItem('anthropicKey')||''; document.getElementById('aiStatus').textContent=''; m.classList.add('show'); }
-function closeAI(){ document.getElementById('aiModal').classList.remove('show'); }
-function loadAIPhoto(e){ const f=e.target.files[0]; if(!f)return; aiImageType=f.type||'image/png'; const rd=new FileReader(); rd.onload=()=>{ aiImageData=String(rd.result).split(',')[1]; document.getElementById('aiPhotoName').textContent=f.name; }; rd.readAsDataURL(f); }
-async function extractWithAI(){
-  const g=id=>document.getElementById(id);
-  const key=g('aiKey').value.trim(), txt=g('aiText').value.trim(), st=g('aiStatus'), btn=g('aiGo');
-  if(!key){ st.textContent='⚠️ Enter your Anthropic API key first.'; return; }
-  if(!txt && !aiImageData){ st.textContent='⚠️ Add a description or a photo.'; return; }
-  localStorage.setItem('anthropicKey',key);
-  st.textContent='⏳ Asking Claude to read your deck…'; btn.disabled=true;
-  const content=[{type:'text',text:AI_PROMPT+(txt||'(none — use the photo)')}];
-  if(aiImageData) content.push({type:'image',source:{type:'base64',media_type:aiImageType,data:aiImageData}});
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-opus-4-8',max_tokens:2000,messages:[{role:'user',content}]})});
-    if(!r.ok){ const t=await r.text(); st.textContent='❌ API error '+r.status+': '+t.slice(0,180); btn.disabled=false; return; }
-    const j=await r.json();
-    const out=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-    const s=out.indexOf('{'), e=out.lastIndexOf('}');
-    if(s<0||e<0) throw new Error('No JSON in response');
-    const data=JSON.parse(out.slice(s,e+1));
-    applyAIData(data);
-    st.textContent='✅ Applied. '+(data.notes||''); toast('Design updated from AI');
-    setTimeout(closeAI,1100);
-  }catch(err){ st.textContent='❌ '+err.message; }
-  btn.disabled=false;
-}
-function applyAIData(d){
-  const g=id=>document.getElementById(id), near=(v,arr,def)=>arr.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a,def);
-  if(Array.isArray(d.sections)&&d.sections.length){
-    nextId=1; state.sections=d.sections.slice(0,6).map((s,i)=>({id:nextId++,x:4+i*2,y:4+i*2,w:Math.max(1,+s.w||10),h:Math.max(1,+s.h||10)}));
-    selId=null;
-  }
-  if(d.material==='comp'||d.material==='wood') setMaterial(d.material);
-  if(d.boardLenFt) g('boardLen').value=near(+d.boardLenFt,[8,10,12,16,20],12);
-  if(d.deckHeightFt!=null) g('deckHeight').value=+d.deckHeightFt;
-  if([12,16,24].includes(+d.joistOC)) g('joistOC').value=+d.joistOC;
-  ['attached','hasStairs','hasRail','hasBorder','hasFascia','hasSkirting','hasHouse','hasDrainage'].forEach(k=>{ if(typeof d[k]==='boolean') g(k).checked=d[k]; });
-  if(d.stairWidthFt) g('stairWidth').value=+d.stairWidthFt;
-  if(d.riserHIn) g('riserH').value=+d.riserHIn;
-  if([1,2].includes(+d.borderRows)) g('borderRows').value=+d.borderRows;
-  const rs={aluminum:'rail_alum',wood:'rail_wood',composite:'rail_comp',glass:'rail_glass',cable:'rail_cable'}[d.railStyle];
-  if(rs) g('railStyle').value=rs;
-  g('borderRowWrap').style.display=g('hasBorder').checked?'flex':'none';
-  document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
-  renderSectionList(); updateSelEditor(); fitView(); recalc();
-}
 let persistT; function persist(){ clearTimeout(persistT); persistT=setTimeout(()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(collectInputs()));}catch(e){} snapshot();},400); }
 let toastT; function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
 
