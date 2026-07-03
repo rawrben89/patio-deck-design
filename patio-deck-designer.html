@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patio Deck Designer — Quebec Material &amp; Cost Estimator</title>
+<style>
+  :root{
+    --bg:#0d1216; --bg2:#0a0e11; --panel:#141b21; --panel2:#1a232a; --panel3:#212d35;
+    --line:#28343c; --line2:#33424c;
+    --txt:#eef3f6; --muted:#8fa0ac; --muted2:#6b7d89;
+    --accent:#f6a623; --accent-d:#c9821a; --accent2:#3fb6a8; --accent2-d:#2e8a80;
+    --ok:#54d18b; --warn:#ffb454; --danger:#ff6b6b;
+    --wood:#d1954f; --wood-l:#e6b877; --comp:#9fb2bd;
+    --shadow:0 6px 24px rgba(0,0,0,.35);
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:radial-gradient(1200px 800px at 80% -10%,#16222b 0,var(--bg) 55%);color:var(--txt);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0}
+  h2{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;
+    display:flex;align-items:center;gap:7px;margin-bottom:11px}
+  h2 .ic{font-size:14px}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#26333c;border-radius:6px;border:2px solid var(--panel)}
+  ::-webkit-scrollbar-thumb:hover{background:#33434e}
+
+  header{display:flex;align-items:center;gap:14px;padding:11px 18px;
+    background:linear-gradient(180deg,#18232b,#121a20);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+  header .badge{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:20px;
+    background:linear-gradient(135deg,var(--accent),#e07b1a);box-shadow:0 3px 10px rgba(246,166,35,.3)}
+  header h1{font-size:17px;font-weight:800;letter-spacing:-.01em}
+  header .sub{color:var(--muted);font-size:11.5px}
+  header .actions{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap}
+
+  .wrap{display:grid;grid-template-columns:320px minmax(0,1fr) 400px;height:calc(100vh - 61px)}
+  .col{overflow:auto;padding:16px}
+  .col.left{background:linear-gradient(180deg,var(--panel),#121920);border-right:1px solid var(--line)}
+  .col.mid{background:var(--bg2);display:flex;flex-direction:column;padding:14px}
+  .col.right{background:linear-gradient(180deg,var(--panel),#121920);border-left:1px solid var(--line);padding:0}
+  .col.right .inner{padding:16px 16px 0}
+
+  .grp{background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:13px;
+    box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
+  .grp:last-child{margin-bottom:0}
+
+  label{display:block;font-size:11.5px;color:var(--muted);margin:9px 0 4px;font-weight:600}
+  label.chk{color:var(--txt);font-weight:500;display:flex;align-items:center;gap:8px;cursor:pointer;margin:9px 0 4px}
+  label.chk input{width:auto;margin:0}
+  input,select,button{font:inherit;color:var(--txt)}
+  input[type=number],input[type=text],select{width:100%;background:var(--bg2);border:1px solid var(--line2);
+    border-radius:8px;padding:8px 10px;transition:border-color .15s,box-shadow .15s}
+  input[type=number]:focus,input[type=text]:focus,select:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(246,166,35,.15)}
+  select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238fa0ac' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .row{display:flex;gap:9px}.row>*{flex:1;min-width:0}
+
+  button{cursor:pointer;background:var(--panel3);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;
+    font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+  button:hover{border-color:var(--accent);background:#26333c;transform:translateY(-1px)}
+  button:active{transform:translateY(0)}
+  button.primary{background:linear-gradient(135deg,var(--accent),var(--accent-d));color:#241700;border:none;box-shadow:0 3px 10px rgba(246,166,35,.25)}
+  button.small{padding:5px 10px;font-size:12px}
+  button.ghost{background:transparent;border-color:var(--line)}
+  button.danger{border-color:#5c2a2a;color:#ff9a9a;background:transparent}
+  button.danger:hover{background:#2a1618;border-color:#ff6b6b}
+
+  .seg{display:flex;background:var(--bg2);border:1px solid var(--line2);border-radius:9px;padding:3px;gap:3px}
+  .seg button{flex:1;border:none;border-radius:6px;background:transparent;padding:7px 8px;font-size:12.5px;transform:none}
+  .seg button:hover{background:#1f2a31;transform:none}
+  .seg button.on{background:linear-gradient(135deg,var(--accent),var(--accent-d));color:#241700;box-shadow:0 2px 6px rgba(246,166,35,.25)}
+
+  .hint{font-size:11px;color:var(--muted2);line-height:1.45}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line2);
+    border-radius:20px;padding:5px 11px;font-size:12px;color:var(--muted)}
+  .pill input{border:none;background:transparent;padding:2px;text-align:center}
+  .pill input:focus{box-shadow:none}
+
+  /* canvas */
+  .canvas-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:11px}
+  .canvas-shell{flex:1;position:relative;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
+    background:#080b0d;box-shadow:var(--shadow) inset}
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+  .canvas-legend{position:absolute;left:12px;bottom:12px;background:rgba(10,14,17,.82);border:1px solid var(--line2);
+    border-radius:8px;padding:7px 10px;font-size:11px;color:var(--muted);backdrop-filter:blur(4px);pointer-events:none}
+  .canvas-hint{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(10,14,17,.82);
+    border:1px solid var(--line2);border-radius:20px;padding:6px 14px;font-size:11.5px;color:var(--muted);
+    backdrop-filter:blur(4px);pointer-events:none;white-space:nowrap}
+  .sel-editor{position:absolute;top:12px;right:12px;background:rgba(15,21,26,.94);border:1px solid var(--accent);
+    border-radius:10px;padding:10px 11px;backdrop-filter:blur(6px);box-shadow:var(--shadow);display:none;min-width:186px}
+  .sel-editor.show{display:block}
+  .sel-editor .se-title{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;margin-bottom:8px}
+  .sel-editor .sw{width:12px;height:12px;border-radius:4px}
+  .sel-editor .se-row{display:flex;align-items:center;gap:6px;margin-top:7px}
+  .sel-editor input[type=number]{width:60px;padding:5px 7px;font-size:12px}
+  .sel-editor .se-row button{flex:1}
+  .view3d-tools{position:absolute;bottom:12px;right:12px;display:flex;gap:6px;background:rgba(15,21,26,.9);
+    border:1px solid var(--line2);border-radius:10px;padding:5px;backdrop-filter:blur(6px)}
+
+  /* right column */
+  .banner{background:linear-gradient(135deg,#1c2e38,#15242c);border:1px solid #2c4552;color:#cfe6f0;
+    border-radius:10px;padding:10px 12px;font-size:11.5px;line-height:1.5;margin-bottom:13px;display:flex;gap:9px}
+  .banner .ic{font-size:15px;flex:none}
+
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  .kpi .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);font-weight:700}
+  .kpi .v{font-size:20px;font-weight:800;margin-top:2px;letter-spacing:-.02em}
+  .kpi .v.accent{color:var(--accent)}
+  .kpi .u{font-size:11px;color:var(--muted);font-weight:600}
+
+  .cat{margin-bottom:9px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel2)}
+  .cat-head{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--panel3);cursor:pointer;user-select:none}
+  .cat-head .ic{font-size:15px}
+  .cat-head .nm{font-weight:700;font-size:12.5px;letter-spacing:.02em}
+  .cat-head .sum{margin-left:auto;font-weight:800;font-size:13px}
+  .cat-head .chev{color:var(--muted2);transition:transform .15s;font-size:11px}
+  .cat.collapsed .chev{transform:rotate(-90deg)}
+  .cat.collapsed .cat-body{display:none}
+  .cat-body{padding:2px 0}
+  .li{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:9px 12px;border-top:1px solid var(--line)}
+  .li .nm{font-weight:600;font-size:12.5px}
+  .li .meta{font-size:10.5px;color:var(--muted2);margin-top:1px}
+  .li .stock{font-size:10.5px;margin-top:3px}
+  .li .qty{text-align:right;font-size:12px;color:var(--muted);white-space:nowrap}
+  .li .qty b{color:var(--txt);font-size:13px}
+  .li .price{text-align:right;font-weight:800;font-size:13px;white-space:nowrap}
+  .tag{font-size:9.5px;padding:1px 6px;border-radius:9px;border:1px solid var(--line2);color:var(--muted);font-weight:700;vertical-align:middle;margin-left:5px}
+  .tag.wood{color:var(--wood-l);border-color:#5a4023;background:#2a1d0d55}
+  .tag.comp{color:var(--comp);border-color:#3a4952;background:#1a252c55}
+
+  .totbar{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(20,27,33,0),var(--panel) 32%);
+    padding:16px;margin-top:6px}
+  .tot{display:flex;justify-content:space-between;padding:3px 0;font-size:13px}
+  .tot.muted{color:var(--muted);font-size:12px}
+  .tot.big{font-size:22px;font-weight:800;border-top:1px solid var(--line2);padding-top:11px;margin-top:8px;letter-spacing:-.02em}
+  .tot.big .v{color:var(--accent)}
+
+  .sec-item{display:flex;gap:6px;align-items:center;margin-bottom:7px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:8px;padding:6px 8px;transition:border-color .15s}
+  .sec-item.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(246,166,35,.12)}
+  .sec-item .sw{width:13px;height:13px;border-radius:4px;flex:none}
+  .sec-item input{padding:5px 7px;font-size:12px}
+
+  details summary{cursor:pointer;color:var(--muted);font-size:12px;margin:2px 0;list-style:none;display:flex;align-items:center;gap:6px}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"▸";transition:transform .15s;font-size:10px}
+  details[open] summary::before{transform:rotate(90deg)}
+  .price-edit{display:grid;grid-template-columns:1fr 84px;gap:7px;align-items:center;margin:7px 0}
+  .price-edit label{margin:0;color:var(--txt);font-size:12px;font-weight:500}
+  .price-edit input{padding:5px 8px}
+
+  .muted{color:var(--muted)}
+  .foot{padding:9px 18px;color:var(--muted2);font-size:11px;border-top:1px solid var(--line);
+    background:var(--panel);display:flex;gap:8px;align-items:center}
+
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(6,9,12,.72);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:20px 22px;width:100%;max-width:520px;box-shadow:var(--shadow)}
+  .modal textarea{width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:9px 11px;color:var(--txt);font:inherit;resize:vertical}
+  .modal textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(246,166,35,.15)}
+  /* toast */
+  #toast{position:fixed;bottom:20px;left:50%;transform:translate(-50%,20px);background:#20303a;border:1px solid #2f4a58;
+    color:#e7f2f8;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:var(--shadow);opacity:0;
+    pointer-events:none;transition:all .25s;z-index:50}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:1150px){.wrap{grid-template-columns:1fr;height:auto}.col{height:auto;max-height:none}
+    .col.mid .canvas-shell{height:60vh}}
+  @media print{
+    body{background:#fff;color:#000}
+    header .actions,.col.left,.col.mid,.canvas-tools,.foot,.banner,.no-print,details{display:none!important}
+    .wrap{grid-template-columns:1fr;height:auto;display:block}
+    .col.right{border:none}.grp,.cat,.kpi{border-color:#ccc}
+    .cat.collapsed .cat-body{display:block!important}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="badge">🪵</div>
+  <div>
+    <h1>Patio Deck Designer</h1>
+    <div class="sub">Design it yourself · full material takeoff · Quebec pricing &amp; live stock links</div>
+  </div>
+  <div class="actions no-print">
+    <button class="small ghost" onclick="openAI()">🤖 AI auto-fill</button>
+    <button class="small primary" onclick="generateProposal()">📋 Proposal / PDF</button>
+    <button class="small ghost" onclick="exportCSV()">📄 CSV</button>
+    <button class="small ghost" onclick="saveProject()">💾 Save</button>
+    <button class="small ghost" onclick="document.getElementById('loadFile').click()">📂 Load</button>
+    <input id="loadFile" type="file" accept=".json" style="display:none" onchange="loadProject(event)">
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- ============ LEFT: INPUTS ============ -->
+  <div class="col left">
+    <div class="grp">
+      <h2><span class="ic">▦</span> Deck sections</h2>
+      <div class="hint" style="margin-bottom:9px">Drag on the canvas to sketch a section, or add one and type exact feet. Use several for an L-shape.</div>
+      <div id="sectionList"></div>
+      <button class="small ghost" style="width:100%" onclick="addSection()">＋ Add section</button>
+    </div>
+
+    <div class="grp">
+      <h2><span class="ic">🪵</span> Decking material</h2>
+      <div class="seg" id="matSeg">
+        <button data-mat="wood" class="on" onclick="setMaterial('wood')">🌲 PT Wood</button>
+        <button data-mat="comp" onclick="setMaterial('comp')">🧱 Composite</button>
+      </div>
+      <label>Board size (width &amp; type)</label>
+      <select id="boardProfile"></select>
+      <div class="row">
+        <div><label>Board length (ft)</label>
+          <select id="boardLen"><option>8</option><option>10</option><option selected>12</option><option>16</option><option>20</option></select>
+        </div>
+        <div><label>Gap (in)</label>
+          <input type="number" id="gap" value="0.1875" step="0.0625" min="0">
+        </div>
+      </div>
+      <label>Board direction</label>
+      <div class="seg" id="dirSeg">
+        <button class="on" data-dir="length" onclick="setDir('length')">↕ Along length</button>
+        <button data-dir="width" onclick="setDir('width')">↔ Along width</button>
+      </div>
+      <label>Waste allowance: <span id="wasteVal" style="color:var(--accent)">10</span>%</label>
+      <input type="range" id="waste" min="0" max="25" value="10" step="1">
+      <div id="packWrap" style="display:none">
+        <label>Pieces per pack (composite)</label>
+        <input type="number" id="packSize" value="1" min="1">
+      </div>
+    </div>
+
+    <div class="grp">
+      <h2><span class="ic">🪚</span> Framing &amp; footings</h2>
+      <div class="row">
+        <div><label>Joist spacing (in O.C.)</label>
+          <select id="joistOC"><option>12</option><option selected>16</option><option>24</option></select>
+        </div>
+        <div><label>Deck height (ft)</label>
+          <input type="number" id="deckHeight" value="3" step="0.5" min="0">
+        </div>
+      </div>
+      <label class="chk"><input type="checkbox" id="attached" checked> Attached to house (ledger + flashing)</label>
+      <label class="chk"><input type="checkbox" id="hasHouse" checked> Show house wall + patio sliding door</label>
+      <div class="row">
+        <div><label>Post spacing (ft)</label><input type="number" id="postSpacing" value="6" step="0.5" min="2"></div>
+        <div><label>Footing type</label>
+          <select id="footing"><option value="block">Deck blocks</option><option value="sonotube" selected>Sonotube + concrete</option></select>
+        </div>
+      </div>
+      <label class="chk" style="margin-top:6px"><input type="checkbox" id="hasDrainage"> Under-deck drainage (dry space below · water drains off)</label>
+    </div>
+
+    <div class="grp">
+      <h2><span class="ic">🪜</span> Stairs, railing &amp; finish</h2>
+      <label class="chk"><input type="checkbox" id="hasStairs" checked> Include stairs</label>
+      <div class="row">
+        <div><label>Stair width (ft)</label><input type="number" id="stairWidth" value="4" step="0.5" min="2"></div>
+        <div><label>Riser height (in)</label><input type="number" id="riserH" value="7.5" step="0.25" min="4"></div>
+      </div>
+      <div class="row">
+        <div><label>Stair side</label>
+          <select id="stairSide"><option value="S" selected>Front</option><option value="E">Right</option><option value="W">Left</option><option value="N">Back</option></select>
+        </div>
+        <div><label>Position: <span id="stairPosVal">50</span>%</label>
+          <input type="range" id="stairPos" min="0" max="100" value="50" step="1">
+        </div>
+      </div>
+      <label class="chk" style="margin-top:12px"><input type="checkbox" id="hasRail" checked> Include railing</label>
+      <label>Railing style</label>
+      <select id="railStyle">
+        <option value="rail_alum" selected>Aluminum</option>
+        <option value="rail_wood">PT wood picket</option>
+        <option value="rail_comp">Composite</option>
+        <option value="rail_glass">Glass panel</option>
+        <option value="rail_cable">Cable / horizontal</option>
+      </select>
+      <label>Railing sides</label>
+      <div class="row" style="gap:5px">
+        <label class="chk" style="flex:1;font-size:12px"><input type="checkbox" id="railS" checked> Front</label>
+        <label class="chk" style="flex:1;font-size:12px"><input type="checkbox" id="railE" checked> Right</label>
+        <label class="chk" style="flex:1;font-size:12px"><input type="checkbox" id="railW" checked> Left</label>
+        <label class="chk" style="flex:1;font-size:12px"><input type="checkbox" id="railN" checked> Back</label>
+      </div>
+      <label class="chk" style="margin-top:12px"><input type="checkbox" id="hasBorder"> Picture-frame border (closed edge)</label>
+      <div class="row" id="borderRowWrap" style="display:none">
+        <div><label>Border boards</label>
+          <select id="borderRows"><option value="1" selected>1 (single)</option><option value="2">2 (double)</option></select>
+        </div>
+      </div>
+      <label class="chk" style="margin-top:12px"><input type="checkbox" id="hasFascia"> Fascia board (trim edge)</label>
+      <label class="chk"><input type="checkbox" id="hasSkirting"> Skirting / lattice (hides under-deck)</label>
+    </div>
+  </div>
+
+  <!-- ============ MID: CANVAS ============ -->
+  <div class="col mid">
+    <div class="canvas-tools no-print">
+      <span class="pill">Scale <input type="number" id="scale" value="14" min="4" max="40" style="width:44px"> px/ft</span>
+      <span class="pill">Snap <input type="number" id="snap" value="0.5" step="0.5" min="0" style="width:44px"> ft</span>
+      <div class="seg" style="width:auto">
+        <button class="on" id="view2dBtn" onclick="setView(false)">▦ 2D plan</button>
+        <button id="view3dBtn" onclick="setView(true)">🧊 3D view</button>
+      </div>
+      <button class="small" id="drawBtn" onclick="toggleDraw()">✏️ Draw: OFF</button>
+      <label class="pill" style="cursor:pointer"><input type="checkbox" id="showFraming" style="margin:0 4px 0 0"> 🧱 Framing</label>
+      <label class="pill" style="cursor:pointer">📷 Photo
+        <input type="file" id="photo" accept="image/*" onchange="loadPhoto(event)" style="width:0;height:0;opacity:0;position:absolute">
+      </label>
+      <span class="pill">Opacity <input type="range" id="photoOp" min="0" max="100" value="45" style="width:70px"></span>
+      <button class="small ghost" onclick="removePhoto()">✖ Photo</button>
+      <button class="small ghost" onclick="fitView()">⤢ Fit</button>
+    </div>
+    <div class="canvas-shell">
+      <canvas id="cv" width="1000" height="680"></canvas>
+      <div class="canvas-hint" id="cvHint">Drag to draw · click a section to select &amp; move · Del to remove</div>
+      <div class="canvas-legend" id="cvLegend"></div>
+      <div class="sel-editor" id="selEditor">
+        <div class="se-title"><span class="sw" id="seSwatch"></span> Section <span id="seNum"></span></div>
+        <div class="se-row">
+          <input type="number" id="seW" step="0.5" min="1" title="width"> <span class="muted">×</span>
+          <input type="number" id="seH" step="0.5" min="1" title="length"> <span class="muted">ft</span>
+        </div>
+        <div class="se-row">
+          <button class="small" id="seDup">⧉ Duplicate</button>
+          <button class="small danger" id="seDel">🗑 Delete</button>
+        </div>
+      </div>
+      <div class="view3d-tools" id="view3dTools" style="display:none">
+        <button class="small" onclick="rotate3D(-25)">⟲</button>
+        <button class="small" onclick="resetView3D()">⌂ Reset</button>
+        <button class="small" onclick="rotate3D(25)">⟳</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RIGHT: RESULTS ============ -->
+  <div class="col right">
+   <div class="inner">
+    <div class="banner no-print">
+      <span class="ic">💡</span>
+      <div>Prices are <b>editable Quebec estimates</b> — adjust them below. No store has a public stock API, so each item has a <b>🔎 check stock</b> link that searches your store directly.</div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="k">Deck area</div><div class="v" id="kpiArea">0<span class="u"> ft²</span></div></div>
+      <div class="kpi"><div class="k">Decking boards</div><div class="v" id="kpiBoards">0</div></div>
+      <div class="kpi"><div class="k">Total (taxes in)</div><div class="v accent" id="kpiTotal">$0</div></div>
+      <div class="kpi"><div class="k">Cost per ft²</div><div class="v" id="kpiPerSqft">$0</div></div>
+    </div>
+
+    <div class="grp">
+      <h2><span class="ic">🏬</span> Store &amp; pricing</h2>
+      <label>Preferred store (for stock links)</label>
+      <select id="store">
+        <option value="canac" selected>Canac (default)</option>
+        <option value="rona">Rona</option>
+        <option value="homedepot">Home Depot Canada</option>
+        <option value="patrickmorin">Patrick Morin</option>
+      </select>
+      <details style="margin-top:10px">
+        <summary>Edit unit prices (CAD, pre-tax)</summary>
+        <div id="priceEditor"></div>
+        <button class="small ghost" onclick="resetPrices()">↺ Reset to defaults</button>
+      </details>
+    </div>
+
+    <div id="warnBox"></div>
+    <div id="structNote"></div>
+
+    <div class="grp">
+      <h2><span class="ic">🪚</span> Board cut list &amp; offcuts</h2>
+      <div id="cutListBox"></div>
+    </div>
+
+    <h2 style="margin:4px 0 10px"><span class="ic">🧾</span> Materials &amp; cost breakdown</h2>
+    <div id="catList"></div>
+   </div>
+
+    <div class="totbar">
+      <div class="tot"><span>Subtotal</span><b id="subtotal">$0</b></div>
+      <div class="tot muted"><span>GST (5%)</span><span id="gst">$0</span></div>
+      <div class="tot muted"><span>QST (9.975%)</span><span id="qst">$0</span></div>
+      <div class="tot big"><span>Total</span><span class="v" id="grandtotal">$0</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="foot no-print">
+  <span>⚠️</span>
+  <div>Estimator only — not engineered plans. Verify quantities, spans, footing depth (frost line), ledger attachment, and stair/railing geometry against the <b>Quebec building code &amp; RBQ</b>, and get a permit before building. Prices/stock change daily — confirm at the store.</div>
+</div>
+
+<div id="aiModal" class="modal-bg" onclick="if(event.target===this)closeAI()">
+  <div class="modal">
+    <h2 style="border:none;margin:0 0 4px"><span class="ic">🤖</span> AI auto-fill from photo or details</h2>
+    <div class="hint" style="margin-bottom:10px">Upload a photo of a deck and/or paste a description or a product/plan link. Claude reads it and fills in the whole plan (you can still tweak afterward). Runs against the Anthropic API with your own key — the key is stored only in this browser.</div>
+    <label>Anthropic API key <span class="muted">(from console.anthropic.com)</span></label>
+    <input type="password" id="aiKey" placeholder="sk-ant-...">
+    <label style="margin-top:10px">Describe the deck / paste details or a link</label>
+    <textarea id="aiText" rows="4" placeholder="e.g. 16x12 composite deck, 3 ft high, stairs on the front, aluminum railing, picture-frame border… or paste a link and the specs you copied."></textarea>
+    <label class="pill" style="margin-top:10px;cursor:pointer;display:inline-flex">📷 Deck photo
+      <input type="file" id="aiPhoto" accept="image/*" onchange="loadAIPhoto(event)" style="width:0;height:0;opacity:0;position:absolute">
+    </label>
+    <span id="aiPhotoName" class="muted" style="font-size:12px;margin-left:8px"></span>
+    <div id="aiStatus" class="hint" style="margin-top:10px;min-height:18px"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" onclick="extractWithAI()" id="aiGo">✨ Extract &amp; apply</button>
+      <button class="ghost" onclick="closeAI()">Cancel</button>
+    </div>
+    <div class="hint" style="margin-top:8px">Note: browsers can't fetch arbitrary links directly, so paste the key specs from a link rather than relying on the URL alone. Photos work best taken straight-on.</div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ============================================================ DATA ============================================================ */
+const MATERIALS = {
+  wood:{ label:'Pressure-treated wood', profiles:[
+    {id:'54x6', name:'5/4 x 6 PT (5½″ wide)', face:5.5, priceKey:'deck_54x6'},
+    {id:'54x4', name:'5/4 x 4 PT (3½″ wide)', face:3.5, priceKey:'deck_54x4'},
+    {id:'2x6',  name:'2 x 6 PT (5½″ wide)',   face:5.5, priceKey:'deck_2x6'},
+    {id:'2x4',  name:'2 x 4 PT (3½″ wide)',   face:3.5, priceKey:'deck_2x4'} ]},
+  comp:{ label:'Composite', profiles:[
+    {id:'comp_grooved', name:'Composite grooved (5½″)', face:5.5, priceKey:'deck_comp_grooved'},
+    {id:'comp_solid',   name:'Composite solid (5½″)',   face:5.5, priceKey:'deck_comp_solid'},
+    {id:'comp_narrow',  name:'Composite narrow (3½″)',  face:3.5, priceKey:'deck_comp_narrow'} ]}
+};
+
+const CAT = {
+  decking:{label:'Decking', ic:'🪵', order:1},
+  framing:{label:'Framing', ic:'🪚', order:2},
+  footing:{label:'Footings & posts', ic:'🧱', order:3},
+  drainage:{label:'Under-deck drainage', ic:'💧', order:3.5},
+  hardware:{label:'Hardware & fasteners', ic:'🔩', order:4},
+  stairs:{label:'Stairs', ic:'🪜', order:5},
+  railing:{label:'Railing', ic:'🚧', order:6},
+  fascia:{label:'Fascia & skirting', ic:'📐', order:7},
+};
+
+const DEFAULT_PRICES = {
+  deck_54x6:      {label:'PT 5/4x6 decking board', unit:'/board', v:11.0, search:'5/4 x 6 pressure treated decking'},
+  deck_54x4:      {label:'PT 5/4x4 decking board', unit:'/board', v:8.0,  search:'5/4 x 4 pressure treated decking'},
+  deck_2x6:       {label:'PT 2x6 decking board',   unit:'/board', v:13.5, search:'2 x 6 pressure treated'},
+  deck_2x4:       {label:'PT 2x4 decking board',   unit:'/board', v:9.0,  search:'2 x 4 pressure treated'},
+  deck_comp_grooved:{label:'Composite grooved board', unit:'/board', v:52.0, search:'composite grooved deck board'},
+  deck_comp_solid:{label:'Composite solid board',  unit:'/board', v:58.0, search:'composite square edge deck board'},
+  deck_comp_narrow:{label:'Composite narrow board', unit:'/board', v:44.0, search:'composite narrow deck board'},
+  joist_2x8:      {label:'2x8 PT joist',           unit:'/board', v:17.5, search:'2 x 8 pressure treated'},
+  beam_2x10:      {label:'2x10 PT (beam)',         unit:'/board', v:27.0, search:'2 x 10 pressure treated'},
+  ledger_2x8:     {label:'2x8 PT ledger',          unit:'/board', v:17.5, search:'2 x 8 pressure treated'},
+  post_6x6:       {label:'6x6 PT post (8ft)',      unit:'/post',  v:42.0, search:'6 x 6 pressure treated post'},
+  hanger:         {label:'Joist hanger',           unit:'/ea',    v:1.95, search:'joist hanger 2x8'},
+  post_base:      {label:'Post base bracket',      unit:'/ea',    v:13.0, search:'adjustable post base'},
+  screws_box:     {label:'Deck screws (5lb ≈ 350)',unit:'/box',   v:44.0, search:'deck screws 5lb', covers:350},
+  hidden_pack:    {label:'Hidden fasteners (100 ft²)',unit:'/pack',v:62.0,search:'composite hidden fasteners', coversSqft:100},
+  struct_screws:  {label:'Structural screws (box)',unit:'/box',   v:38.0, search:'structural wood screws'},
+  flashing:       {label:'Ledger flashing (10ft)', unit:'/ea',    v:19.0, search:'ledger flashing aluminum', covers:10},
+  concrete_bag:   {label:'Concrete 30kg bag',      unit:'/bag',   v:7.5,  search:'concrete mix 30kg'},
+  sonotube:       {label:'Sonotube 8" x 4ft',      unit:'/ea',    v:13.0, search:'sonotube 8 inch tube form'},
+  deck_block:     {label:'Deck block',             unit:'/ea',    v:9.5,  search:'deck block pier'},
+  stringer_2x12:  {label:'2x12 PT (stair stringer)',unit:'/board',v:34.0, search:'2 x 12 pressure treated'},
+  rail_alum:      {label:'Railing — aluminum',     unit:'/ft',    v:22.0, search:'aluminum deck railing kit'},
+  rail_wood:      {label:'Railing — PT wood picket',unit:'/ft',   v:16.0, search:'pressure treated deck railing spindles'},
+  rail_comp:      {label:'Railing — composite',    unit:'/ft',    v:38.0, search:'composite deck railing kit'},
+  rail_glass:     {label:'Railing — glass panel',  unit:'/ft',    v:58.0, search:'glass panel deck railing'},
+  rail_cable:     {label:'Railing — cable / horizontal',unit:'/ft',v:44.0,search:'cable deck railing kit'},
+  fascia_board:   {label:'Fascia board 1x8 PT',    unit:'/board', v:16.0, search:'1 x 8 pressure treated fascia'},
+  lattice:        {label:'Lattice panel 4x8',      unit:'/panel', v:28.0, search:'pressure treated lattice panel', coversSqft:32},
+  ledgerlok:      {label:'Ledger structural screw', unit:'/ea',    v:0.95, search:'ledgerlok structural screw'},
+  sealant:        {label:'Wood stain / sealant 3.78L',unit:'/can', v:48.0, search:'deck stain sealant'},
+  drainage:       {label:'Under-deck drainage (per ft²)',unit:'/ft²',v:6.5, search:'under deck drainage system', perFt2:true},
+  downspout:      {label:'Drainage downspout / gutter kit',unit:'/kit',v:45.0,search:'deck drainage downspout kit'},
+};
+const RAIL_STYLES={rail_alum:'Aluminum', rail_wood:'PT wood picket', rail_comp:'Composite', rail_glass:'Glass panel', rail_cable:'Cable / horizontal'};
+
+const STORE_SEARCH = {
+  canac:        q=>'https://www.canac.ca/en/search?q='+encodeURIComponent(q),
+  rona:         q=>'https://www.rona.ca/en/search?query='+encodeURIComponent(q),
+  homedepot:    q=>'https://www.homedepot.ca/search?q='+encodeURIComponent(q),
+  patrickmorin: q=>'https://www.patrickmorin.com/en/recherche?q='+encodeURIComponent(q),
+};
+const STORE_NAME={canac:'Canac',rona:'Rona',homedepot:'Home Depot',patrickmorin:'Patrick Morin'};
+const SECTION_COLORS=['#f6a623','#3fb6a8','#c084fc','#5bd68a','#ff8fab','#63b3ed'];
+const LS_KEY='patioDeckDesign.v2';
+
+/* ============================================================ STATE ============================================================ */
+let state={ material:'wood', profile:'54x6', dir:'length',
+  sections:[{id:1,x:6,y:6,w:16,h:12}], prices:structuredClone(DEFAULT_PRICES), photo:null };
+let nextId=2, drawing=false, dragStart=null, dragCur=null, photoImg=null;
+let selId=null, moveOffset=null, resizing=null, stairDrag=false, collapsed={}, view3d=false;
+const CUR={nw:'nwse-resize',se:'nwse-resize',ne:'nesw-resize',sw:'nesw-resize',n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize'};
+let az3d=-0.62, el3d=0.56, zoom3d=1, orbit=null, top3dFaces=[]; // camera azimuth/elevation (rad), zoom, picking cache
+const DEF_AZ=-0.62, DEF_EL=0.56;
+
+/* ============================================================ UI BUILDERS ============================================================ */
+function buildProfileOptions(){
+  const sel=document.getElementById('boardProfile'); sel.innerHTML='';
+  MATERIALS[state.material].profiles.forEach(p=>{ const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o); });
+  state.profile=MATERIALS[state.material].profiles[0].id; sel.value=state.profile;
+}
+function setMaterial(m){
+  state.material=m;
+  document.querySelectorAll('#matSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mat===m));
+  document.getElementById('packWrap').style.display=m==='comp'?'block':'none';
+  buildProfileOptions(); draw(); recalc();
+}
+function setDir(d){
+  state.dir=d;
+  document.querySelectorAll('#dirSeg button').forEach(b=>b.classList.toggle('on',b.dataset.dir===d));
+  draw(); recalc();
+}
+function renderSectionList(){
+  const box=document.getElementById('sectionList'); box.innerHTML='';
+  state.sections.forEach((s,i)=>{
+    const div=document.createElement('div'); div.className='sec-item'+(s.id===selId?' sel':'');
+    div.innerHTML=`<span class="sw" style="background:${SECTION_COLORS[i%SECTION_COLORS.length]}"></span>
+      <input type="number" value="${s.w}" step="0.5" min="1" title="width" style="width:56px" data-id="${s.id}" data-k="w">
+      <span class="muted">×</span>
+      <input type="number" value="${s.h}" step="0.5" min="1" title="length" style="width:56px" data-id="${s.id}" data-k="h">
+      <span class="muted" style="font-size:11px">ft</span>
+      <button class="small danger" style="margin-left:auto" data-del="${s.id}">✖</button>`;
+    box.appendChild(div);
+  });
+  box.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{
+    const s=state.sections.find(x=>x.id==e.target.dataset.id);
+    s[e.target.dataset.k]=Math.max(1,parseFloat(e.target.value)||1); draw(); recalc();
+  }));
+  box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>delSection(+e.target.dataset.del)));
+}
+function delSection(id){
+  if(state.sections.length<=1){toast('Keep at least one section');return;}
+  state.sections=state.sections.filter(x=>x.id!=id);
+  if(selId===id)selId=null;
+  renderSectionList(); updateSelEditor(); draw(); recalc();
+}
+function addSection(){
+  const last=state.sections[state.sections.length-1];
+  const s={id:nextId++,x:(last?last.x+last.w:6),y:(last?last.y:6),w:8,h:8};
+  state.sections.push(s); selId=s.id; renderSectionList(); updateSelEditor(); draw(); recalc();
+}
+function renderPriceEditor(){
+  const box=document.getElementById('priceEditor'); box.innerHTML='';
+  Object.entries(state.prices).forEach(([k,p])=>{
+    const d=document.createElement('div'); d.className='price-edit';
+    d.innerHTML=`<label>${p.label} <span class="muted">${p.unit}</span></label><input type="number" step="0.01" value="${p.v}" data-pk="${k}">`;
+    box.appendChild(d);
+  });
+  box.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{ state.prices[e.target.dataset.pk].v=parseFloat(e.target.value)||0; recalc(); }));
+}
+function resetPrices(){ state.prices=structuredClone(DEFAULT_PRICES); renderPriceEditor(); recalc(); toast('Prices reset to defaults'); }
+
+/* ============================================================ CANVAS ============================================================ */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const SC=()=>parseFloat(document.getElementById('scale').value);
+const px=ft=>ft*SC(), toFt=p=>p/SC();
+const snapFt=v=>{const s=parseFloat(document.getElementById('snap').value)||0; return s>0?Math.round(v/s)*s:Math.round(v*100)/100;};
+
+function setView(is3d){
+  view3d=is3d;
+  document.getElementById('view2dBtn').classList.toggle('on',!is3d);
+  document.getElementById('view3dBtn').classList.toggle('on',is3d);
+  if(is3d&&drawing)toggleDraw();
+  document.getElementById('view3dTools').style.display=is3d?'flex':'none';
+  const hint=document.getElementById('cvHint');
+  hint.style.display='';
+  hint.innerHTML=is3d?'Drag to orbit · click a section to select · edit or 🗑 delete':'Drag to draw · click a section to select &amp; move · Del to remove';
+  draw(); updateSelEditor();
+}
+function rotate3D(deg){ az3d+=deg*Math.PI/180; draw(); }
+function resetView3D(){ az3d=DEF_AZ; el3d=DEF_EL; zoom3d=1; draw(); }
+// shared stair geometry for 2D + 3D (position/side aware)
+function getStairGeom(U){
+  const g=id=>document.getElementById(id);
+  if(!g('hasStairs').checked) return null;
+  const H=parseFloat(g('deckHeight').value)||0; if(H<=0) return null;
+  const riser=parseFloat(g('riserH').value)||7.5;
+  const risers=Math.max(1,Math.round(H*12/riser)), treads=Math.max(1,risers-1);
+  const stairW=parseFloat(g('stairWidth').value)||4;
+  const pos=(parseFloat(g('stairPos').value)||50)/100, side=g('stairSide').value;
+  const {minX,minY,maxX,maxY}=U, W=maxX-minX, Hd=maxY-minY;
+  let along,out,cx,cy;
+  if(side==='S'){along=[1,0];out=[0,1];cx=minX+pos*W;cy=maxY;}
+  else if(side==='N'){along=[1,0];out=[0,-1];cx=minX+pos*W;cy=minY;}
+  else if(side==='E'){along=[0,1];out=[1,0];cx=maxX;cy=minY+pos*Hd;}
+  else {along=[0,1];out=[-1,0];cx=minX;cy=minY+pos*Hd;}
+  const sx=cx-along[0]*stairW/2, sy=cy-along[1]*stairW/2;
+  return {side,along,out,sx,sy,stairW,treads,risers,H,run:0.9};
+}
+function houseSpan(U){ // x-range of sections touching the house (min-y) side
+  const tops=state.sections.filter(s=>Math.abs(s.y-U.minY)<0.02);
+  const set=tops.length?tops:state.sections;
+  return {x0:Math.min(...set.map(s=>s.x)), x1:Math.max(...set.map(s=>s.x+s.w)), y:U.minY};
+}
+// suggested bottom framing (matches the material takeoff) drawn on the 2D plan
+function framingLayout(s){
+  const g=id=>document.getElementById(id);
+  const joistOCin=parseFloat(g('joistOC').value), joistOC=joistOCin/12;
+  const attached=g('attached').checked, postSpacing=parseFloat(g('postSpacing').value)||6;
+  const JSPAN={12:11.5,16:10.4,24:8.4}[joistOCin]||10;
+  const alongLen=state.dir==='length';                 // joists span the "across" dim, perpendicular to boards
+  const across=alongLen?s.w:s.h, runLen=alongLen?s.h:s.w;
+  const nJoist=Math.floor(runLen/joistOC)+1;
+  const nBeam=Math.max(1,Math.ceil(across/JSPAN)+(attached?0:1));
+  const beamPos=[]; if(attached){for(let i=1;i<=nBeam;i++)beamPos.push(across*i/nBeam);} else {for(let i=0;i<nBeam;i++)beamPos.push(nBeam>1?across*i/(nBeam-1):across/2);}
+  return {alongLen,across,runLen,joistOC,nJoist,nBeam,beamPos,postSpacing,attached};
+}
+function drawFraming2D(){
+  const line=(x1,y1,x2,y2,c,w,dash)=>{ctx.setLineDash(dash||[]);ctx.strokeStyle=c;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(px(x1),px(y1));ctx.lineTo(px(x2),px(y2));ctx.stroke();ctx.setLineDash([]);};
+  state.sections.forEach(s=>{
+    const x0=s.x,y0=s.y,x1=s.x+s.w,y1=s.y+s.h;
+    const F=framingLayout(s);
+    // joists (thin) — span "across", spaced along runLen
+    for(let i=0;i<=F.nJoist;i++){ const o=Math.min(i*F.joistOC,F.runLen);
+      if(F.alongLen) line(x0,y0+o,x1,y0+o,'#a9814a',1); else line(x0+o,y0,x0+o,y1,'#a9814a',1); }
+    // rim / perimeter joists (2x8)
+    ctx.setLineDash([]);ctx.strokeStyle='#7c5a30';ctx.lineWidth=3;ctx.strokeRect(px(x0),px(y0),px(s.w),px(s.h));
+    // beams (thick) + posts (squares) — perpendicular to joists
+    F.beamPos.forEach(bp=>{
+      const nP=Math.max(2,Math.floor(F.runLen/F.postSpacing)+1);
+      if(F.alongLen){ line(x0+bp,y0,x0+bp,y1,'#c56a1c',4);
+        for(let p=0;p<nP;p++){const pyv=y0+Math.min(p*F.postSpacing,F.runLen);ctx.fillStyle='#241708';ctx.fillRect(px(x0+bp)-5,px(pyv)-5,10,10);ctx.fillStyle='#c56a1c';ctx.fillRect(px(x0+bp)-3,px(pyv)-3,6,6);}
+      } else { line(x0,y0+bp,x1,y0+bp,'#c56a1c',4);
+        for(let p=0;p<nP;p++){const pxv=x0+Math.min(p*F.postSpacing,F.runLen);ctx.fillStyle='#241708';ctx.fillRect(px(pxv)-5,px(y0+bp)-5,10,10);ctx.fillStyle='#c56a1c';ctx.fillRect(px(pxv)-3,px(y0+bp)-3,6,6);}
+      }
+    });
+    // ledger on the house/support side (across = 0 edge), dashed red
+    if(F.attached){ if(F.alongLen) line(x0,y0,x0,y1,'#d1533a',4,[7,4]); else line(x0,y0,x1,y0,'#d1533a',4,[7,4]); }
+  });
+}
+function draw(){
+  if(view3d){draw3D();return;}
+  const scale=SC();
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(photoImg){
+    ctx.globalAlpha=(parseFloat(document.getElementById('photoOp').value)||0)/100;
+    const r=Math.min(cv.width/photoImg.width,cv.height/photoImg.height);
+    ctx.drawImage(photoImg,0,0,photoImg.width*r,photoImg.height*r); ctx.globalAlpha=1;
+  }
+  for(let gx=0;gx<cv.width;gx+=scale){const maj=Math.round(gx/scale)%5===0;ctx.strokeStyle=maj?'#223038':'#141d2288';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,cv.height);ctx.stroke();}
+  for(let gy=0;gy<cv.height;gy+=scale){const maj=Math.round(gy/scale)%5===0;ctx.strokeStyle=maj?'#223038':'#141d2288';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(cv.width,gy);ctx.stroke();}
+
+  const face=(MATERIALS[state.material].profiles.find(p=>p.id===state.profile)||{face:5.5}).face;
+  const gap=parseFloat(document.getElementById('gap').value)||0;
+  const step=(face+gap)/12;
+  state.sections.forEach((s,i)=>{
+    const c=SECTION_COLORS[i%SECTION_COLORS.length], sel=s.id===selId;
+    ctx.fillStyle=c+'26'; ctx.strokeStyle=c; ctx.lineWidth=sel?3:2;
+    ctx.fillRect(px(s.x),px(s.y),px(s.w),px(s.h));
+    ctx.strokeStyle=c+'66'; ctx.lineWidth=1;
+    if(state.dir==='length'){ for(let o=step;o<s.w;o+=step){ctx.beginPath();ctx.moveTo(px(s.x+o),px(s.y));ctx.lineTo(px(s.x+o),px(s.y+s.h));ctx.stroke();} }
+    else { for(let o=step;o<s.h;o+=step){ctx.beginPath();ctx.moveTo(px(s.x),px(s.y+o));ctx.lineTo(px(s.x+s.w),px(s.y+o));ctx.stroke();} }
+    ctx.strokeStyle=c; ctx.lineWidth=sel?3:2; ctx.strokeRect(px(s.x),px(s.y),px(s.w),px(s.h));
+    if(sel){ const H=[[s.x,s.y],[s.x+s.w/2,s.y],[s.x+s.w,s.y],[s.x+s.w,s.y+s.h/2],[s.x+s.w,s.y+s.h],[s.x+s.w/2,s.y+s.h],[s.x,s.y+s.h],[s.x,s.y+s.h/2]];
+      H.forEach(([hx,hy])=>{ ctx.fillStyle='#fff'; ctx.strokeStyle=c; ctx.lineWidth=2; ctx.fillRect(px(hx)-5,px(hy)-5,10,10); ctx.strokeRect(px(hx)-5,px(hy)-5,10,10); }); }
+    ctx.fillStyle='#eef3f6'; ctx.font='700 13px system-ui'; ctx.textAlign='center';
+    ctx.fillText(`${s.w}′ × ${s.h}′`, px(s.x+s.w/2), px(s.y+s.h/2)+4);
+    ctx.fillStyle=c; ctx.font='600 11px system-ui';
+    ctx.fillText(`${(s.w*s.h).toFixed(0)} ft²`, px(s.x+s.w/2), px(s.y+s.h/2)+20);
+  });
+  if(document.getElementById('hasBorder').checked){
+    const rows=parseInt(document.getElementById('borderRows').value)||1, bw=rows*step;
+    ctx.strokeStyle='#f6a623';ctx.lineWidth=2;ctx.setLineDash([]);
+    state.sections.forEach(s=>{ if(s.w>2*bw&&s.h>2*bw)ctx.strokeRect(px(s.x+bw),px(s.y+bw),px(s.w-2*bw),px(s.h-2*bw)); });
+  }
+  if(document.getElementById('showFraming').checked) drawFraming2D();
+  const U2=unionMetrics(state.sections);
+  // house wall + sliding door (2D, architectural symbol just outside the ledger edge)
+  if(document.getElementById('hasHouse').checked){
+    const {x0,x1,y}=houseSpan(U2), dcx=(x0+x1)/2, doorW=Math.min(7,(x1-x0)*0.4), t=Math.max(0.5,6/SC());
+    ctx.setLineDash([]); ctx.lineCap='butt';
+    const wy=y-t;
+    ctx.fillStyle='#242b33'; ctx.fillRect(px(x0),px(wy),px(x1-x0),px(t));
+    ctx.strokeStyle='#3b444e'; ctx.lineWidth=1;
+    for(let yy=wy+0.18;yy<y-0.02;yy+=0.18){ctx.beginPath();ctx.moveTo(px(x0),px(yy));ctx.lineTo(px(x1),px(yy));ctx.stroke();}
+    ctx.strokeStyle='#6b7783'; ctx.lineWidth=1.6; ctx.strokeRect(px(x0),px(wy),px(x1-x0),px(t));
+    // door opening + two sliding glass panels
+    ctx.fillStyle='#0b0f12'; ctx.fillRect(px(dcx-doorW/2),px(wy)+1,px(doorW),px(t)-2);
+    ctx.lineCap='round';
+    ctx.strokeStyle='#63d3c4'; ctx.lineWidth=3.6;
+    ctx.beginPath();ctx.moveTo(px(dcx-doorW/2),px(wy+t*0.4));ctx.lineTo(px(dcx+doorW*0.06),px(wy+t*0.4));ctx.stroke();
+    ctx.strokeStyle='#3fb6a8';
+    ctx.beginPath();ctx.moveTo(px(dcx-doorW*0.06),px(wy+t*0.62));ctx.lineTo(px(dcx+doorW/2),px(wy+t*0.62));ctx.stroke();
+    ctx.lineCap='butt';
+    ctx.fillStyle='#aeb9c3';ctx.font='700 10px system-ui';ctx.textAlign='center';
+    ctx.fillText('🏠 House · patio sliding door',px(dcx),px(wy)-5);
+  }
+  // stairs (2D)
+  const st=getStairGeom(U2);
+  if(st){
+    const {along,out,sx,sy,stairW,treads,run}=st;
+    ctx.strokeStyle='#f6a623';ctx.lineWidth=1.6;ctx.setLineDash([]);
+    for(let i=0;i<=treads;i++){ const ox=out[0]*run*i,oy=out[1]*run*i;
+      ctx.beginPath();ctx.moveTo(px(sx+ox),px(sy+oy));ctx.lineTo(px(sx+along[0]*stairW+ox),px(sy+along[1]*stairW+oy));ctx.stroke(); }
+    [0,stairW].forEach(off=>{ ctx.beginPath();
+      ctx.moveTo(px(sx+along[0]*off),px(sy+along[1]*off));
+      ctx.lineTo(px(sx+along[0]*off+out[0]*run*treads),px(sy+along[1]*off+out[1]*run*treads));ctx.stroke(); });
+    ctx.fillStyle='#f6a623';ctx.font='700 10px system-ui';ctx.textAlign='center';
+    ctx.fillText(`⬇ ${treads} steps`,px(sx+along[0]*stairW/2+out[0]*run*treads*0.6),px(sy+along[1]*stairW/2+out[1]*run*treads*0.6));
+  }
+  if(drawing&&dragStart&&dragCur){
+    const x=Math.min(dragStart.x,dragCur.x),y=Math.min(dragStart.y,dragCur.y),w=Math.abs(dragCur.x-dragStart.x),h=Math.abs(dragCur.y-dragStart.y);
+    ctx.strokeStyle='#fff';ctx.setLineDash([6,4]);ctx.lineWidth=1.5;ctx.strokeRect(px(x),px(y),px(w),px(h));ctx.setLineDash([]);
+    ctx.fillStyle='#fff';ctx.font='700 12px system-ui';ctx.textAlign='left';ctx.fillText(`${w.toFixed(1)}′ × ${h.toFixed(1)}′`,px(x)+5,px(y)-6);
+  }
+  if(resizing) cv.style.cursor=CUR[resizing.handle];
+  else if(stairDrag) cv.style.cursor='grabbing';
+  else if(drawing) cv.style.cursor='crosshair';
+  const fram=document.getElementById('showFraming').checked
+    ? ` &nbsp;|&nbsp; <span style="color:#a9814a">━ joists</span> <span style="color:#c56a1c">━ beam ▪ post</span> <span style="color:#d1533a">┅ ledger</span>`
+    : ` &nbsp;|&nbsp; drag edges to resize · drag stairs to move`;
+  document.getElementById('cvLegend').innerHTML=`Grid = 1 ft · bold = 5 ft${fram} &nbsp;|&nbsp; ${state.sections.length} section${state.sections.length>1?'s':''}`;
+}
+function draw3D(){
+  const g=id=>document.getElementById(id);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const grad=ctx.createLinearGradient(0,0,0,cv.height); grad.addColorStop(0,'#0c1216'); grad.addColorStop(1,'#0a0d10');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,cv.width,cv.height);
+  const H=Math.max(0.6,parseFloat(g('deckHeight').value)||0.6), th=0.75;
+  const comp=state.material==='comp';
+  const face=(MATERIALS[state.material].profiles.find(p=>p.id===state.profile)||{face:5.5}).face;
+  const gap=parseFloat(g('gap').value)||0, step=(face+gap)/12;
+  const hasRail=g('hasRail').checked, railH=hasRail?3:0;
+  const attached=g('attached').checked, hasBorder=g('hasBorder').checked;
+  const hasHouse=g('hasHouse').checked, showFraming=g('showFraming').checked;
+  const railOn={N:g('railN').checked,S:g('railS').checked,E:g('railE').checked,W:g('railW').checked};
+  const borderW=hasBorder?(parseInt(g('borderRows').value)||1)*step:0;
+  const pB={minX:Math.min(...state.sections.map(s=>s.x)),minY:Math.min(...state.sections.map(s=>s.y)),maxX:Math.max(...state.sections.map(s=>s.x+s.w)),maxY:Math.max(...state.sections.map(s=>s.y+s.h))};
+  const stg3=getStairGeom(pB);
+  // orbit camera: rotate around footprint centre by az3d, tilt by el3d
+  const cx=(Math.min(...state.sections.map(s=>s.x))+Math.max(...state.sections.map(s=>s.x+s.w)))/2;
+  const cy=(Math.min(...state.sections.map(s=>s.y))+Math.max(...state.sections.map(s=>s.y+s.h)))/2;
+  const ca=Math.cos(az3d), sa=Math.sin(az3d), se=Math.sin(el3d), ce=Math.cos(el3d);
+  const pr=(x,y,z)=>{const X=x-cx,Y=y-cy;const rx=X*ca-Y*sa,ry=X*sa+Y*ca;return{x:rx,y:ry*se-z*ce};};
+  let pts=[]; state.sections.forEach(s=>[[0,0],[s.w,0],[s.w,s.h],[0,s.h]].forEach(([dx,dy])=>{pts.push(pr(s.x+dx,s.y+dy,0));pts.push(pr(s.x+dx,s.y+dy,H+railH));}));
+  const minx=Math.min(...pts.map(p=>p.x)),maxx=Math.max(...pts.map(p=>p.x)),miny=Math.min(...pts.map(p=>p.y)),maxy=Math.max(...pts.map(p=>p.y));
+  const pad=58, fit=Math.min((cv.width-2*pad)/((maxx-minx)||1),(cv.height-2*pad)/((maxy-miny)||1));
+  const sc=fit*zoom3d, ox=(cv.width-(maxx-minx)*sc)/2-minx*sc, oy=(cv.height-(maxy-miny)*sc)/2-miny*sc;
+  const P=(x,y,z)=>{const p=pr(x,y,z);return[ox+p.x*sc,oy+p.y*sc];};
+  top3dFaces=[]; // cache projected top faces for click-picking
+  const quad=(a,b,c,d,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.lineTo(...c);ctx.lineTo(...d);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}};
+  const line=(a,b,color,lw)=>{ctx.beginPath();ctx.moveTo(...P(...a));ctx.lineTo(...P(...b));ctx.strokeStyle=color;ctx.lineWidth=lw||1;ctx.stroke();};
+  const col=comp?{top:'#9aa7b0',topSel:'#c3d0d8',topL:'#7d8a94',e:'#727f89',s:'#5c686f',rail:'#c6cfd5',railT:'#aab4bb'}
+                :{top:'#c88b4d',topSel:'#e6ad6c',topL:'#a06f39',e:'#96602e',s:'#7b4e26',rail:'#d9b58b',railT:'#b98a5a'};
+  const postC={e:'#6b5d38',s:'#54492c'};
+
+  // ground shadow
+  ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle='#000';
+  state.sections.forEach(s=>{ctx.beginPath();ctx.moveTo(...P(s.x,s.y,0));ctx.lineTo(...P(s.x+s.w,s.y,0));ctx.lineTo(...P(s.x+s.w,s.y+s.h,0));ctx.lineTo(...P(s.x,s.y+s.h,0));ctx.closePath();ctx.fill();}); ctx.restore();
+
+  const frontSec=state.sections.reduce((a,s)=>(s.y+s.h>(a.y+a.h)?s:a),state.sections[0]);
+  const order=[...state.sections].sort((a,b)=>(a.x+a.y)-(b.x+b.y));
+  order.forEach(s=>{
+    const x0=s.x,y0=s.y,x1=s.x+s.w,y1=s.y+s.h;
+    // posts
+    const inset=0.5, pw=0.5;
+    [[x0+inset,y0+inset],[x1-inset-pw,y0+inset],[x0+inset,y1-inset-pw],[x1-inset-pw,y1-inset-pw]].forEach(([pxx,pyy])=>{
+      quad(P(pxx,pyy+pw,0),P(pxx+pw,pyy+pw,0),P(pxx+pw,pyy+pw,H-th),P(pxx,pyy+pw,H-th),postC.s,'#0006');
+      quad(P(pxx+pw,pyy,0),P(pxx+pw,pyy+pw,0),P(pxx+pw,pyy+pw,H-th),P(pxx+pw,pyy,H-th),postC.e,'#0006');
+    });
+    if(!showFraming){
+      // slab band sides (solid skirt)
+      quad(P(x1,y0,H-th),P(x1,y1,H-th),P(x1,y1,H),P(x1,y0,H),col.e,'#0004');
+      quad(P(x0,y1,H-th),P(x1,y1,H-th),P(x1,y1,H),P(x0,y1,H),col.s,'#0004');
+    } else {
+      // open framing: joists + rim + beams under the deck
+      const F=framingLayout(s), zJ=H-th+0.05, zB=H-th-0.02;
+      for(let i=0;i<=F.nJoist;i++){ const o=Math.min(i*F.joistOC,F.runLen);
+        if(F.alongLen) line([x0,y0+o,zJ],[x1,y0+o,zJ],'#bb8c4f',1.2); else line([x0+o,y0,zJ],[x0+o,y1,zJ],'#bb8c4f',1.2); }
+      line([x0,y0,zJ],[x1,y0,zJ],'#8a6636',2.2); line([x0,y1,zJ],[x1,y1,zJ],'#8a6636',2.2);
+      line([x0,y0,zJ],[x0,y1,zJ],'#8a6636',2.2); line([x1,y0,zJ],[x1,y1,zJ],'#8a6636',2.2);
+      F.beamPos.forEach(bp=>{ if(F.alongLen) line([x0+bp,y0,zB],[x0+bp,y1,zB],'#c56a1c',3.5); else line([x0,y0+bp,zB],[x1,y0+bp,zB],'#c56a1c',3.5); });
+    }
+    // top surface (cache polygon for picking; translucent when framing so joists show through)
+    const sel=s.id===selId, tc=[P(x0,y0,H),P(x1,y0,H),P(x1,y1,H),P(x0,y1,H)];
+    top3dFaces.push({id:s.id,poly:tc});
+    if(showFraming)ctx.globalAlpha=0.42;
+    quad(tc[0],tc[1],tc[2],tc[3], sel?col.topSel:col.top, sel?'#f6a623':col.topL, sel?3:1.2);
+    ctx.globalAlpha=1;
+    // board lines
+    if(state.dir==='length'){ for(let o=step;o<s.w-0.001;o+=step)line([x0+o,y0,H],[x0+o,y1,H],col.topL+'',0.6); }
+    else { for(let o=step;o<s.h-0.001;o+=step)line([x0,y0+o,H],[x1,y0+o,H],col.topL+'',0.6); }
+    if(sel){ ctx.beginPath();tc.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.strokeStyle='#f6a623';ctx.lineWidth=3;ctx.stroke(); }
+    // picture-frame border
+    if(hasBorder && s.w>2*borderW && s.h>2*borderW){
+      ctx.strokeStyle='#f6a623';ctx.lineWidth=2;ctx.beginPath();
+      [[x0+borderW,y0+borderW],[x1-borderW,y0+borderW],[x1-borderW,y1-borderW],[x0+borderW,y1-borderW]].forEach((c,i)=>{const q=P(c[0],c[1],H+0.02);i?ctx.lineTo(...q):ctx.moveTo(...q);});
+      ctx.closePath();ctx.stroke();
+    }
+    // railing on outer edges — skip house side, and open a gap where the stairs are
+    if(hasRail){
+      const drawRail=(ax,ay,bx,by)=>{ const len=Math.hypot(bx-ax,by-ay); if(len<0.2)return; const n=Math.max(2,Math.round(len/0.45));
+        for(let i=0;i<=n;i++){const t=i/n,x=ax+(bx-ax)*t,y=ay+(by-ay)*t;line([x,y,H],[x,y,H+railH],col.rail,1);}
+        line([ax,ay,H+railH],[bx,by,H+railH],col.railT,2.5); line([ax,ay,H+railH-0.1],[bx,by,H+railH-0.1],col.railT,1); };
+      const edges=[[x0,y0,x1,y0,'N'],[x1,y0,x1,y1,'E'],[x0,y1,x1,y1,'S'],[x0,y0,x0,y1,'W']];
+      edges.forEach(([ax,ay,bx,by,side])=>{
+        if(!railOn[side]||(attached&&side==='N'))return; // side off / house side
+        // stair opening on this side?
+        if(stg3 && stg3.side===side){
+          const horiz=(side==='N'||side==='S');
+          const atBound = horiz ? Math.abs(ay-(side==='S'?pB.maxY:pB.minY))<0.05 : Math.abs(ax-(side==='E'?pB.maxX:pB.minX))<0.05;
+          if(atBound){
+            const denom=horiz?(bx-ax)||1:(by-ay)||1;
+            const o0=horiz?stg3.sx:stg3.sy, o1=horiz?stg3.sx+stg3.along[0]*stg3.stairW:stg3.sy+stg3.along[1]*stg3.stairW;
+            let a=(Math.min(o0,o1)-(horiz?ax:ay))/denom, b=(Math.max(o0,o1)-(horiz?ax:ay))/denom;
+            a=Math.max(0,Math.min(1,a)); b=Math.max(0,Math.min(1,b));
+            if(b>a+0.01){ const pt=t=>[ax+(bx-ax)*t,ay+(by-ay)*t];
+              if(a>0.01){const A=pt(0),B=pt(a);drawRail(A[0],A[1],B[0],B[1]);}
+              if(b<0.99){const A=pt(b),B=pt(1);drawRail(A[0],A[1],B[0],B[1]);}
+              return;
+            }
+          }
+        }
+        drawRail(ax,ay,bx,by);
+      });
+    }
+  });
+  // generalized stairs (any side/position), drawn last so it sits in front
+  const stg=stg3;
+  if(stg){
+    const {along,out,sx,sy,stairW,treads,H:sh,run}=stg;
+    for(let i=0;i<treads;i++){
+      const z=sh-(sh/treads)*i, z2=z-(sh/treads);
+      const bx=sx+out[0]*run*i, by=sy+out[1]*run*i, fx=bx+out[0]*run, fy=by+out[1]*run;
+      const a=[bx,by],b=[bx+along[0]*stairW,by+along[1]*stairW],c=[fx+along[0]*stairW,fy+along[1]*stairW],d=[fx,fy];
+      quad(P(...a,z),P(...b,z),P(...c,z),P(...d,z),col.top,'#0006');           // tread top
+      quad(P(...d,z),P(...c,z),P(...c,z2),P(...d,z2),col.s,'#0006');           // riser
+    }
+  }
+  // house wall + sliding patio door (3D) — starts at deck level so it never covers the deck
+  if(hasHouse){
+    const {x0,x1}=houseSpan(pB), wy=pB.minY, t=0.5, base=H, top=H+8;
+    const gq=(pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((p,i)=>{const q=P(p[0],p[1],p[2]);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}};
+    gq([[x0,wy,base],[x0,wy-t,base],[x0,wy-t,top],[x0,wy,top]],'#8f95a0','#5c626b',1);      // left return
+    gq([[x1,wy,base],[x1,wy-t,base],[x1,wy-t,top],[x1,wy,top]],'#7f858f','#5c626b',1);      // right return
+    gq([[x0,wy-t,top],[x1,wy-t,top],[x1,wy,top],[x0,wy,top]],'#bcc1cb','#5c626b',1);        // top cap
+    gq([[x0,wy,base],[x1,wy,base],[x1,wy,top],[x0,wy,top]],'#c9ced8','#8b909a',1);          // front (siding)
+    for(let z=base+0.9;z<top;z+=0.9) line([x0,wy,z],[x1,wy,z],'#b0b6c1',0.8);               // lap siding
+    // sliding patio door
+    const dcx=(x0+x1)/2, dw=Math.min(7,(x1-x0)*0.42), dL=dcx-dw/2, dR=dcx+dw/2, dBot=base, dTop=base+6.8, fr=0.14;
+    gq([[dL-0.28,wy,dBot],[dR+0.28,wy,dBot],[dR+0.28,wy,dTop+0.28],[dL-0.28,wy,dTop+0.28]],'#eceff3','#c4c9d1',1); // white casing
+    gq([[dL,wy,dBot],[dR,wy,dBot],[dR,wy,dTop],[dL,wy,dTop]],'#2f343b',null);                 // frame
+    gq([[dL+fr,wy,dBot+fr],[dcx-fr/2,wy,dBot+fr],[dcx-fr/2,wy,dTop-fr],[dL+fr,wy,dTop-fr]],'#a2c6d8','#728fa0',1); // left glass
+    gq([[dcx+fr/2,wy,dBot+fr],[dR-fr,wy,dBot+fr],[dR-fr,wy,dTop-fr],[dcx+fr/2,wy,dTop-fr]],'#8fb7cb','#6f8ea0',1);  // right glass
+    line([dL+fr+0.2,wy,dBot+1],[dcx-fr,wy,dTop-1],'#dcecf3',1.4);                             // reflections
+    line([dcx+fr+0.3,wy,dBot+1.4],[dR-fr-0.2,wy,dTop-1],'#cadde7',1.2);
+    line([dcx+0.45,wy,base+2.5],[dcx+0.45,wy,base+3.7],'#333a44',3);                          // handle
+    if(dL-x0>4){ const wc=(x0+dL)/2, ww=Math.min(3,(dL-x0)*0.5), wB=base+2.4, wT=base+5.4;    // side window
+      gq([[wc-ww/2-0.22,wy,wB-0.22],[wc+ww/2+0.22,wy,wB-0.22],[wc+ww/2+0.22,wy,wT+0.22],[wc-ww/2-0.22,wy,wT+0.22]],'#eceff3','#c4c9d1',1);
+      gq([[wc-ww/2,wy,wB],[wc+ww/2,wy,wB],[wc+ww/2,wy,wT],[wc-ww/2,wy,wT]],'#9fc4d6','#5c626b',1);
+      line([wc,wy,wB],[wc,wy,wT],'#eceff3',1); line([wc-ww/2,wy,(wB+wT)/2],[wc+ww/2,wy,(wB+wT)/2],'#eceff3',1);
+    }
+    const lbl=P(dcx,wy,top+0.5); ctx.fillStyle='#aeb9c3';ctx.font='700 11px system-ui';ctx.textAlign='center';ctx.fillText('🏠 House',...lbl);
+  }
+  // legend
+  document.getElementById('cvLegend').innerHTML=`3D preview · ${state.material==='comp'?'composite':'wood'} · ${H}′ high${hasRail?' · railing':''}${hasBorder?' · border':''}${hasHouse?' · house':''}${showFraming?' · <span style="color:#c56a1c">framing (x-ray)</span>':''} <span style="color:var(--muted2)">· drag to orbit</span>`;
+}
+function evtFt(e){
+  const r=cv.getBoundingClientRect();
+  return { x:snapFt(toFt((e.clientX-r.left)*(cv.width/r.width))), y:snapFt(toFt((e.clientY-r.top)*(cv.height/r.height))) };
+}
+function hitSection(pt){ for(let i=state.sections.length-1;i>=0;i--){const s=state.sections[i]; if(pt.x>=s.x&&pt.x<=s.x+s.w&&pt.y>=s.y&&pt.y<=s.y+s.h)return s;} return null; }
+function toggleDraw(){ drawing=!drawing; document.getElementById('drawBtn').textContent='✏️ Draw: '+(drawing?'ON':'OFF'); document.getElementById('drawBtn').classList.toggle('primary',drawing); draw(); }
+function boundsFt(){ return {minX:Math.min(...state.sections.map(s=>s.x)),minY:Math.min(...state.sections.map(s=>s.y)),maxX:Math.max(...state.sections.map(s=>s.x+s.w)),maxY:Math.max(...state.sections.map(s=>s.y+s.h))}; }
+function handlePts(s){ return {nw:[s.x,s.y],n:[s.x+s.w/2,s.y],ne:[s.x+s.w,s.y],e:[s.x+s.w,s.y+s.h/2],se:[s.x+s.w,s.y+s.h],s:[s.x+s.w/2,s.y+s.h],sw:[s.x,s.y+s.h],w:[s.x,s.y+s.h/2]}; }
+function hitHandle(e){ const s=state.sections.find(x=>x.id===selId); if(!s)return null; const p=evtPx(e), H=handlePts(s);
+  for(const k in H){ if(Math.hypot(px(H[k][0])-p.x,px(H[k][1])-p.y)<11) return k; } return null; }
+function resizeSection(s,h,pt){ let x0=s.x,y0=s.y,x1=s.x+s.w,y1=s.y+s.h;
+  if(h.includes('e'))x1=Math.max(x0+1,pt.x); if(h.includes('w'))x0=Math.max(0,Math.min(x1-1,pt.x));
+  if(h.includes('s'))y1=Math.max(y0+1,pt.y); if(h.includes('n'))y0=Math.max(0,Math.min(y1-1,pt.y));
+  s.x=x0;s.y=y0;s.w=x1-x0;s.h=y1-y0; }
+function stairHit(pt){ const st=getStairGeom(boundsFt()); if(!st)return false; const {sx,sy,along,out,stairW,treads,run}=st,d=Math.max(0.8,treads*run);
+  const poly=[[sx,sy],[sx+along[0]*stairW,sy+along[1]*stairW],[sx+along[0]*stairW+out[0]*d,sy+along[1]*stairW+out[1]*d],[sx+out[0]*d,sy+out[1]*d]];
+  return pointInPoly(pt.x,pt.y,poly); }
+function dragStairTo(pt){ const b=boundsFt(), dN=Math.abs(pt.y-b.minY),dS=Math.abs(pt.y-b.maxY),dW=Math.abs(pt.x-b.minX),dE=Math.abs(pt.x-b.maxX),m=Math.min(dN,dS,dW,dE);
+  let side,pos; if(m===dS){side='S';pos=(pt.x-b.minX)/((b.maxX-b.minX)||1);} else if(m===dN){side='N';pos=(pt.x-b.minX)/((b.maxX-b.minX)||1);} else if(m===dE){side='E';pos=(pt.y-b.minY)/((b.maxY-b.minY)||1);} else {side='W';pos=(pt.y-b.minY)/((b.maxY-b.minY)||1);}
+  pos=Math.max(0,Math.min(1,pos)); document.getElementById('stairSide').value=side; const pv=Math.round(pos*100); document.getElementById('stairPos').value=pv; document.getElementById('stairPosVal').textContent=pv; }
+
+function evtPx(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height)}; }
+function pointInPoly(px,py,poly){ let inside=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1]; if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside; } return inside; }
+function pick3D(e){ const p=evtPx(e); for(let i=top3dFaces.length-1;i>=0;i--){ if(pointInPoly(p.x,p.y,top3dFaces[i].poly))return top3dFaces[i].id; } return null; }
+function updateSelEditor(){
+  const box=document.getElementById('selEditor'); const s=state.sections.find(x=>x.id===selId);
+  if(!s){ box.classList.remove('show'); return; }
+  const i=state.sections.indexOf(s);
+  document.getElementById('seSwatch').style.background=SECTION_COLORS[i%SECTION_COLORS.length];
+  document.getElementById('seNum').textContent=i+1;
+  document.getElementById('seW').value=s.w; document.getElementById('seH').value=s.h;
+  box.classList.add('show');
+}
+
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);
+  if(view3d){ orbit={mx:e.clientX,my:e.clientY,az:az3d,el:el3d,moved:false}; return; }
+  const pt=evtFt(e);
+  if(drawing){ dragStart=pt; dragCur=pt; return; }
+  const h=hitHandle(e);                                   // resize a selected deck edge/corner
+  if(h){ resizing={id:selId,handle:h}; return; }
+  if(stairHit(pt)){ stairDrag=true; return; }             // grab the stairs
+  const s=hitSection(pt);
+  if(s){ selId=s.id; moveOffset={dx:pt.x-s.x,dy:pt.y-s.y}; } else selId=null;
+  renderSectionList(); updateSelEditor(); draw();
+});
+cv.addEventListener('pointermove',e=>{
+  if(view3d){ if(orbit){ const dx=e.clientX-orbit.mx, dy=e.clientY-orbit.my; if(Math.abs(dx)+Math.abs(dy)>3)orbit.moved=true; az3d=orbit.az+dx*0.01; el3d=Math.max(0.12,Math.min(1.45,orbit.el-dy*0.008)); draw(); } return; }
+  if(drawing&&dragStart){ dragCur=evtFt(e); draw(); return; }
+  if(resizing){ const s=state.sections.find(x=>x.id===resizing.id); resizeSection(s,resizing.handle,evtFt(e)); draw(); updateSelEditor(); return; }
+  if(stairDrag){ dragStairTo(evtFt(e)); draw(); return; }
+  if(selId&&moveOffset){ const pt=evtFt(e); const s=state.sections.find(x=>x.id===selId); s.x=Math.max(0,pt.x-moveOffset.dx); s.y=Math.max(0,pt.y-moveOffset.dy); draw(); updateSelEditor(); return; }
+  // hover cursor feedback
+  if(drawing){ cv.style.cursor='crosshair'; return; }
+  const hh=hitHandle(e); cv.style.cursor = hh?CUR[hh] : (stairHit(evtFt(e))?'grab' : (hitSection(evtFt(e))?'move':'default'));
+});
+cv.addEventListener('pointerup',e=>{
+  if(view3d){ if(orbit&&!orbit.moved){ selId=pick3D(e); renderSectionList(); updateSelEditor(); draw(); } orbit=null; return; }
+  if(drawing&&dragStart){
+    const x=Math.min(dragStart.x,dragCur.x),y=Math.min(dragStart.y,dragCur.y),w=Math.abs(dragCur.x-dragStart.x),h=Math.abs(dragCur.y-dragStart.y);
+    dragStart=dragCur=null;
+    if(w>=1&&h>=1){ const s={id:nextId++,x,y,w:snapFt(w),h:snapFt(h)}; state.sections.push(s); selId=s.id; renderSectionList(); updateSelEditor(); recalc(); }
+    draw(); return;
+  }
+  if(resizing){ resizing=null; renderSectionList(); recalc(); return; }
+  if(stairDrag){ stairDrag=false; recalc(); return; }
+  if(moveOffset){ moveOffset=null; renderSectionList(); recalc(); }
+});
+cv.addEventListener('wheel',e=>{ e.preventDefault();
+  if(view3d){ zoom3d=Math.max(0.6,Math.min(1.8, zoom3d*(e.deltaY<0?1.1:0.9))); draw(); }
+  else { const el=document.getElementById('scale'); let v=parseFloat(el.value)||14; v=Math.max(6,Math.min(34, Math.round(v+(e.deltaY<0?2:-2)))); el.value=v; draw(); }
+},{passive:false});
+document.addEventListener('keydown',e=>{ if((e.key==='Delete'||e.key==='Backspace')&&selId!==null&&document.activeElement.tagName!=='INPUT'){ delSection(selId); } });
+document.getElementById('seW').addEventListener('input',e=>{ const s=state.sections.find(x=>x.id===selId); if(s){s.w=Math.max(1,parseFloat(e.target.value)||1); renderSectionList(); draw(); recalc();} });
+document.getElementById('seH').addEventListener('input',e=>{ const s=state.sections.find(x=>x.id===selId); if(s){s.h=Math.max(1,parseFloat(e.target.value)||1); renderSectionList(); draw(); recalc();} });
+document.getElementById('seDel').addEventListener('click',()=>{ if(selId!=null)delSection(selId); });
+document.getElementById('seDup').addEventListener('click',()=>{ const s=state.sections.find(x=>x.id===selId); if(s){ const n={id:nextId++,x:s.x+2,y:s.y+2,w:s.w,h:s.h}; state.sections.push(n); selId=n.id; renderSectionList(); updateSelEditor(); draw(); recalc(); } });
+
+function loadPhoto(e){ const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=()=>{photoImg=new Image();photoImg.onload=()=>{state.photo=rd.result;draw();};photoImg.src=rd.result;}; rd.readAsDataURL(f); toast('Photo added — trace over it'); }
+function removePhoto(){ photoImg=null; state.photo=null; document.getElementById('photo').value=''; draw(); }
+function fitView(){
+  const maxX=Math.max(...state.sections.map(s=>s.x+s.w),10), maxY=Math.max(...state.sections.map(s=>s.y+s.h),10);
+  document.getElementById('scale').value=Math.max(6,Math.min(40,Math.floor(Math.min(cv.width/(maxX+4),cv.height/(maxY+4))))); draw();
+}
+
+/* ============================================================ UNION GEOMETRY (true area + perimeter for L-shapes) ============================================================ */
+function unionMetrics(sections){
+  const cell=0.25;
+  const minX=Math.min(...sections.map(s=>s.x)), minY=Math.min(...sections.map(s=>s.y));
+  const maxX=Math.max(...sections.map(s=>s.x+s.w)), maxY=Math.max(...sections.map(s=>s.y+s.h));
+  const cols=Math.round((maxX-minX)/cell), rows=Math.round((maxY-minY)/cell);
+  const g=new Uint8Array(cols*rows);
+  sections.forEach(s=>{
+    const c0=Math.round((s.x-minX)/cell),c1=Math.round((s.x+s.w-minX)/cell);
+    const r0=Math.round((s.y-minY)/cell),r1=Math.round((s.y+s.h-minY)/cell);
+    for(let r=r0;r<r1;r++)for(let c=c0;c<c1;c++)g[r*cols+c]=1;
+  });
+  let covered=0,N=0,S=0,E=0,W=0;
+  const at=(r,c)=>(r<0||c<0||r>=rows||c>=cols)?0:g[r*cols+c];
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ if(!g[r*cols+c])continue; covered++;
+    if(!at(r-1,c))N++; if(!at(r+1,c))S++; if(!at(r,c-1))W++; if(!at(r,c+1))E++;
+  }
+  return { area:covered*cell*cell, perimeter:(N+S+E+W)*cell, topEdge:N*cell,
+    sides:{N:N*cell,S:S*cell,E:E*cell,W:W*cell}, minX,minY,maxX,maxY };
+}
+
+/* ============================================================ TAKEOFF ENGINE ============================================================ */
+function computeBOQ(){
+  const P=state.prices, items=[];
+  const add=(name,qty,priceKey,cat,tag,note)=>{ if(qty<=0)return; const p=P[priceKey]; items.push({name,qty,unit:p.v,unitLabel:p.unit,total:qty*p.v,cat,tag,search:p.search,note}); };
+
+  const g=id=>document.getElementById(id);
+  const boardLen=parseFloat(g('boardLen').value);
+  const gap=parseFloat(g('gap').value)||0;
+  const waste=1+(parseFloat(g('waste').value)||0)/100;
+  const joistOCin=parseFloat(g('joistOC').value), joistOC=joistOCin/12;
+  const attached=g('attached').checked;
+  const postSpacing=parseFloat(g('postSpacing').value)||6;
+  const footing=g('footing').value;
+  const height=parseFloat(g('deckHeight').value)||0;
+  const comp=state.material==='comp';
+  const prof=MATERIALS[state.material].profiles.find(p=>p.id===state.profile);
+  const tag=comp?'comp':'wood';
+  const faceFt=(prof.face+gap)/12;
+  const hasBorder=g('hasBorder').checked;
+  const borderRows=hasBorder?(parseInt(g('borderRows').value)||1):0;
+  const borderW=borderRows*faceFt;
+  // allowable 2x8 SPF PT joist span (ft) by spacing — conservative exterior/wet values
+  const JOIST_SPAN={12:11.5,16:10.4,24:8.4}[joistOCin]||10;
+
+  const U=unionMetrics(state.sections);
+  const sumArea=state.sections.reduce((a,s)=>a+s.w*s.h,0);
+  const overlap=sumArea-U.area>0.5;
+  const exposed=attached?Math.max(0,U.perimeter-U.topEdge):U.perimeter;
+
+  // ---------- per-section framing + field decking (whole-board row method) ----------
+  let fieldBoards=0, joistCount=0, joistLinFt=0, beamLinFt=0, beamLines=0, postCount=0, rimLinFt=0, blockingLinFt=0, maxSpan=0;
+  const cutList=[]; let offcutLf=0;
+  state.sections.forEach((s,idx)=>{
+    const across=state.dir==='length'?s.w:s.h;   // joist length / rows dimension
+    const runLen=state.dir==='length'?s.h:s.w;    // board length / beam length dimension
+    const fAcross=Math.max(0,across-2*borderW), fRun=Math.max(0,runLen-2*borderW);
+    if(fAcross>0&&fRun>0){
+      const rows=Math.ceil(fAcross/faceFt), perRow=Math.ceil(fRun/boardLen);
+      fieldBoards+=rows*perRow;                                              // whole boards / row
+      const cutTo=+(fRun-(perRow-1)*boardLen).toFixed(2);                    // length of the cut piece in each row
+      const offRow=+(perRow*boardLen-fRun).toFixed(2);                       // waste per row
+      offcutLf+=rows*offRow;
+      cutList.push({sec:idx+1,w:s.w,h:s.h,rows,perRow,boardLen,cutTo,offRow,run:+fRun.toFixed(1)});
+    }
+    const nJoist=Math.floor(runLen/joistOC)+1;
+    joistCount+=nJoist; joistLinFt+=nJoist*across; maxSpan=Math.max(maxSpan,across);
+    const nBeam=Math.max(1,Math.ceil(across/JOIST_SPAN)+(attached?0:1)); // ledger counts as a support when attached
+    beamLines+=nBeam; beamLinFt+=nBeam*runLen*2;                        // 2-ply beams, length = runLen
+    postCount+=nBeam*Math.max(2,Math.floor(runLen/postSpacing)+1);
+    blockingLinFt+=Math.max(0,Math.round(across/6.5)-1)*(nJoist-1)*joistOC; // mid-span bridging
+    rimLinFt+=2*(s.w+s.h);
+  });
+
+  // ---------- DECKING ----------
+  const deckBoards=Math.ceil(fieldBoards*waste);
+  let packNote=`${boardLen}ft boards`;
+  if(comp){ const ps=Math.max(1,parseFloat(g('packSize').value)||1); packNote=`${Math.ceil(deckBoards/ps)} pack(s) × ${ps}`; }
+  add(`Decking — ${prof.name}`, deckBoards, prof.priceKey,'decking',tag,packNote);
+  if(hasBorder){
+    let borderBoards=0; state.sections.forEach(s=>{ borderBoards+=borderRows*Math.ceil(2*(s.w+s.h)/boardLen); });
+    add(`Picture-frame border (${borderRows}×)`, Math.ceil(borderBoards*waste), prof.priceKey,'decking',tag,`mitred perimeter border`);
+    add('Border blocking / doubler (2x8)', Math.ceil(exposed*1.05/boardLen),'joist_2x8','framing','wood','picture-frame support');
+  }
+
+  // ---------- FRAMING ----------
+  add('Joists (2x8)', Math.ceil(joistLinFt*waste/boardLen),'joist_2x8','framing','wood',`${joistCount} joists · span ${maxSpan.toFixed(1)}′ (max ${JOIST_SPAN}′) · ${Math.round(joistLinFt)} lf`);
+  add('Beam material (2x10, 2-ply)', Math.ceil(beamLinFt*1.05/boardLen),'beam_2x10','framing','wood',`${beamLines} beam line(s) · ${Math.round(beamLinFt)} lf`);
+  if(blockingLinFt>0) add('Blocking / bridging (2x8)', Math.ceil(blockingLinFt*1.1/boardLen),'joist_2x8','framing','wood','mid-span, per code');
+  if(attached){ add('Ledger (2x8)', Math.ceil(U.topEdge*1.05/boardLen),'ledger_2x8','framing','wood',`${U.topEdge.toFixed(0)} ft on house`);
+    add('Ledger flashing', Math.ceil(U.topEdge/P.flashing.covers),'flashing','framing','wood'); }
+  add('Rim / perimeter joists (2x8)', Math.ceil(rimLinFt*1.05/boardLen),'joist_2x8','framing','wood',`${Math.round(rimLinFt)} lf`);
+
+  // ---------- FOOTINGS & POSTS ----------
+  add('Posts (6x6)', postCount*Math.max(1,Math.ceil((height+2)/8)),'post_6x6','footing','wood',`${postCount} posts · ${height}′ above grade`);
+  add('Post bases / brackets', postCount,'post_base','footing','wood');
+  if(footing==='sonotube'){ add('Sonotube forms', postCount,'sonotube','footing','wood','8″ — size up for tall/large decks');
+    add('Concrete (30kg bags)', postCount*3,'concrete_bag','footing','wood','≈3 bags/footing at QC frost depth (~1.5 m)'); }
+  else add('Deck blocks', postCount,'deck_block','footing','wood','on-grade only — not for frost-heave zones');
+
+  // ---------- HARDWARE ----------
+  add('Joist hangers', joistCount*(attached?2:1),'hanger','hardware','wood',attached?'ledger + rim':'rim only');
+  if(attached) add('Ledger structural screws', Math.max(4,Math.ceil(U.topEdge/1.33)*2),'ledgerlok','hardware','wood','2 per 16″ staggered');
+  if(comp) add('Hidden fasteners', Math.ceil(U.area/P.hidden_pack.coversSqft),'hidden_pack','hardware','comp',`covers ${P.hidden_pack.coversSqft} ft²/pack`);
+  else { const screws=Math.ceil(U.area*3.5); add('Deck screws', Math.ceil(screws/P.screws_box.covers),'screws_box','hardware','wood',`≈${screws} screws (≈3.5/ft²)`); }
+  add('Structural screws (framing)', Math.max(1,Math.ceil(U.area/120)),'struct_screws','hardware','wood');
+
+  // ---------- STAIRS ----------
+  let stairInfo=null, stairW=0, stairLen=0;
+  if(g('hasStairs').checked && height>0){
+    const riser=parseFloat(g('riserH').value)||7.5;
+    const risers=Math.max(1,Math.round(height*12/riser)), treads=Math.max(1,risers-1);
+    stairW=parseFloat(g('stairWidth').value)||4;
+    stairLen=Math.hypot(height, treads*(10.5/12));
+    const strOC=comp?1.0:1.33;                    // 12″ composite / 16″ wood tread support
+    const nStr=Math.max(2,Math.floor(stairW/strOC)+1);
+    add('Stair stringers (2x12)', nStr*Math.max(1,Math.ceil((stairLen+1)/boardLen)),'stringer_2x12','stairs','wood',`${risers} risers / ${treads} treads · ${stairLen.toFixed(1)}′ run`);
+    const treadRows=Math.max(2,Math.ceil((10.5/12)/faceFt));
+    add('Stair tread boards', Math.ceil(treads*treadRows*Math.ceil(stairW/boardLen)*waste), prof.priceKey,'stairs',tag,`${treads} treads × ${treadRows} deep`);
+    add('Stair angle brackets', nStr*2,'post_base','stairs','wood','top hangers + base');
+    if(footing==='sonotube') add('Stair landing concrete (bags)', 3,'concrete_bag','stairs','wood','landing pad');
+    stairInfo={risers,treads,stairW,nStr,stairLen};
+  }
+
+  // ---------- RAILING (per enabled side, minus house side & stair opening) ----------
+  const stairSide=g('stairSide').value;
+  if(g('hasRail').checked){
+    const rk=g('railStyle').value;
+    const railOn={N:g('railN').checked,S:g('railS').checked,E:g('railE').checked,W:g('railW').checked};
+    let deckRail=0;
+    ['N','S','E','W'].forEach(sd=>{ if(railOn[sd] && !(attached&&sd==='N')) deckRail+=U.sides[sd]; });
+    if(stairInfo && railOn[stairSide] && !(attached&&stairSide==='N')) deckRail=Math.max(0,deckRail-stairW); // stair opening
+    const stairRail=stairInfo?2*stairLen:0;
+    add(`Railing — ${RAIL_STYLES[rk]}`, Math.ceil(deckRail+stairRail), rk,'railing','',`${deckRail.toFixed(0)} lf deck${stairInfo?` + ${stairRail.toFixed(0)} lf stairs`:''}`);
+  }
+
+  // ---------- UNDER-DECK DRAINAGE ----------
+  if(g('hasDrainage').checked && height>0){
+    add('Under-deck drainage panels', Math.ceil(U.area),'drainage','drainage','',`${U.area.toFixed(0)} ft² · dry space + sloped runoff`);
+    add('Drainage downspout / gutter', Math.max(1,Math.ceil(U.perimeter/40)),'downspout','drainage','','routes water off deck edge');
+  }
+
+  // ---------- FASCIA / SKIRTING / FINISH ----------
+  if(g('hasFascia').checked) add('Fascia board (1x8)', Math.ceil(exposed*waste/boardLen),'fascia_board','fascia','wood',`${exposed.toFixed(0)} lf`);
+  if(g('hasSkirting').checked) add('Skirting / lattice', Math.ceil(exposed*height/P.lattice.coversSqft),'lattice','fascia','wood',`${(exposed*height).toFixed(0)} ft² wrap`);
+  if(!comp) add('Wood stain / sealant', Math.max(1,Math.ceil(U.area*2/350)),'sealant','fascia','wood','2 coats · ~350 ft²/gal/coat');
+
+  const deckLf=deckBoards*boardLen, wastePct=deckLf>0?offcutLf/deckLf*100:0;
+  // suggested board length = least decking waste (tie → fewer boards)
+  const deckPlanFor=L=>{ let b=0,off=0; state.sections.forEach(s=>{ const ac=state.dir==='length'?s.w:s.h, rn=state.dir==='length'?s.h:s.w, fA=Math.max(0,ac-2*borderW), fR=Math.max(0,rn-2*borderW); if(fA>0&&fR>0){const rows=Math.ceil(fA/faceFt),perRow=Math.ceil(fR/L); b+=rows*perRow; off+=rows*(perRow*L-fR);} }); const lf=b*L; return {boardLen:L,boards:Math.ceil(b*waste),pct:lf>0?off/lf*100:0}; };
+  let suggest=null; [8,10,12,16,20].forEach(L=>{ const p=deckPlanFor(L); if(!suggest||p.pct<suggest.pct-0.05||(Math.abs(p.pct-suggest.pct)<0.05&&p.boards<suggest.boards)) suggest=p; });
+  return {items, area:U.area, perimeter:U.perimeter, exposed, sides:U.sides, deckBoards, joistCount, postCount, beamLines, boardLen, stairInfo, stairSide, overlap, sumArea, maxSpan, joistSpanMax:JOIST_SPAN, cutList, offcutLf, wastePct, borderRows, faceIn:prof.face, suggest};
+}
+
+/* ============================================================ RENDER ============================================================ */
+const money=v=>'$'+v.toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0=v=>'$'+Math.round(v).toLocaleString('en-CA');
+let lastBOQ=null;
+function applyBoardLen(L){ document.getElementById('boardLen').value=L; draw(); recalc(); toast('Board length set to '+L+'′'); }
+
+function recalc(){
+  const r=computeBOQ(); lastBOQ=r;
+  const store=document.getElementById('store').value;
+
+  // group by category
+  const groups={}; r.items.forEach(it=>{(groups[it.cat]=groups[it.cat]||[]).push(it);});
+  const catList=document.getElementById('catList'); catList.innerHTML='';
+  let subtotal=0;
+  Object.keys(CAT).sort((a,b)=>CAT[a].order-CAT[b].order).forEach(catKey=>{
+    const its=groups[catKey]; if(!its)return;
+    const catSum=its.reduce((a,i)=>a+i.total,0); subtotal+=catSum;
+    const div=document.createElement('div'); div.className='cat'+(collapsed[catKey]!==false?' collapsed':''); // collapsed by default
+    div.innerHTML=`<div class="cat-head" data-cat="${catKey}">
+        <span class="ic">${CAT[catKey].ic}</span><span class="nm">${CAT[catKey].label}</span>
+        <span class="sum">${money(catSum)}</span><span class="chev">▾</span></div>
+      <div class="cat-body">${its.map(it=>{
+        const link=STORE_SEARCH[store](it.search);
+        const tag=it.tag==='comp'?'<span class="tag comp">composite</span>':(it.tag==='wood'?'<span class="tag wood">wood</span>':'');
+        return `<div class="li">
+          <div><div class="nm">${it.name}${tag}</div>${it.note?`<div class="meta">${it.note}</div>`:''}
+            <a class="stock" href="${link}" target="_blank" rel="noopener">🔎 check stock at ${STORE_NAME[store]}</a></div>
+          <div class="qty"><b>${it.qty}</b> ${it.unitLabel}<div class="price">${money(it.total)}</div></div>
+        </div>`;}).join('')}</div>`;
+    catList.appendChild(div);
+  });
+  catList.querySelectorAll('.cat-head').forEach(h=>h.addEventListener('click',()=>{const k=h.dataset.cat;collapsed[k]=(collapsed[k]===false); h.parentElement.classList.toggle('collapsed',collapsed[k]!==false);}));
+
+  const gst=subtotal*0.05, qst=subtotal*0.09975, grand=subtotal+gst+qst;
+  document.getElementById('subtotal').textContent=money(subtotal);
+  document.getElementById('gst').textContent=money(gst);
+  document.getElementById('qst').textContent=money(qst);
+  document.getElementById('grandtotal').textContent=money(grand);
+
+  document.getElementById('kpiArea').innerHTML=`${r.area.toFixed(0)}<span class="u"> ft²</span>`;
+  document.getElementById('kpiBoards').textContent=r.deckBoards;
+  document.getElementById('kpiTotal').textContent=money0(grand);
+  document.getElementById('kpiPerSqft').textContent=r.area>0?money(grand/r.area):'$0';
+
+  const warn=document.getElementById('warnBox');
+  warn.innerHTML=r.overlap?`<div class="banner" style="background:#3a2a18;border-color:#5c4326;color:#ffdca8"><span class="ic">⚠️</span><div>Sections overlap — using true footprint of <b>${r.area.toFixed(0)} ft²</b> (not ${r.sumArea.toFixed(0)}). Move them apart on the canvas if that's not intended.</div></div>`:'';
+
+  const spanOK=r.maxSpan<=r.joistSpanMax;
+  const joistDir=state.dir==='length'?'across the width':'across the length';
+  const attached=document.getElementById('attached').checked;
+  document.getElementById('structNote').innerHTML=
+    `<div class="banner" style="background:#16242c;border-color:#274049;color:#bcd4de"><span class="ic">🧱</span><div>
+      <b>Suggested bottom framing:</b> 2×8 joists @ ${document.getElementById('joistOC').value}″ O.C. running ${joistDir}; span ${r.maxSpan.toFixed(1)}′ of ${r.joistSpanMax}′ allowed ${spanOK?'✅':'— <b style="color:#ffb454">too long: add a beam, drop to 24″→16″, or use 2×10</b>'}. Doubled 2×10 beam × ${r.beamLines} on 6×6 posts @ ${document.getElementById('postSpacing').value} ft → ${r.postCount} footing(s)${attached?', ledger on the house side':' (freestanding — beam each end)'}.
+      ${r.stairInfo?`Stairs: ${r.stairInfo.risers} risers / ${r.stairInfo.treads} treads.`:''}
+      <span style="color:#7fb0c4">Toggle <b>🧱 Framing</b> above the plan to see it drawn.</span>
+    </div></div>`;
+
+  // ---- board cut list ----
+  const dirWord=state.dir==='length'?'length':'width';
+  let cutHTML=`<div class="hint" style="margin-bottom:8px">Decking boards run along the <b>${dirWord}</b>. Each row is cut from ${r.boardLen}′ stock:</div>
+    <table style="font-size:11.5px"><thead><tr><th>Section</th><th class="num">Rows</th><th class="num">Boards/row</th><th class="num">Cut length</th><th class="num">Offcut/row</th></tr></thead><tbody>`;
+  if(!r.cutList.length) cutHTML+=`<tr><td colspan="5" class="muted">No field decking (all border?)</td></tr>`;
+  r.cutList.forEach(c=>{
+    const cutTxt = c.perRow===1 ? (Math.abs(c.cutTo-c.boardLen)<0.05?`full ${c.boardLen}′ (no cut)`:`cut to ${c.cutTo}′`)
+                                : `${c.perRow-1}× full + 1× ${c.cutTo}′`;
+    cutHTML+=`<tr><td>${c.w}′×${c.h}′</td><td class="num">${c.rows}</td><td class="num">${c.perRow}</td><td class="num">${cutTxt}</td><td class="num">${c.offRow>0.05?c.offRow+'′':'0'}</td></tr>`;
+  });
+  cutHTML+=`</tbody></table>
+    <div class="tot" style="margin-top:8px"><span>Total decking offcut / waste</span><b>${r.offcutLf.toFixed(0)} lin ft (${r.wastePct.toFixed(0)}%)</b></div>`;
+  if(r.suggest){
+    const better=r.suggest.boardLen!=r.boardLen && r.suggest.pct < r.wastePct-0.5;
+    cutHTML+=`<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:${better?'#1c3020':'#16242c'};border:1px solid ${better?'#2f5236':'#274049'};display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+      <span style="font-size:14px">💡</span>
+      <div style="flex:1;min-width:150px;font-size:12px">Suggested board length: <b style="color:${better?'#5bd68a':'#e7edf1'}">${r.suggest.boardLen}′</b> <span class="muted">(${r.suggest.pct.toFixed(0)}% waste, ${r.suggest.boards} boards)</span>${better?'':' <span class="muted">— already optimal</span>'}</div>
+      ${better?`<button class="small primary" onclick="applyBoardLen(${r.suggest.boardLen})">Apply ${r.suggest.boardLen}′</button>`:''}
+    </div>`;
+  }
+  if(r.borderRows>0) cutHTML+=`<div class="hint" style="margin-top:6px">Picture-frame border: boards mitred at 45° in the corners around the perimeter.</div>`;
+  if(r.offcutLf>4) cutHTML+=`<div class="hint" style="margin-top:6px">Reuse offcuts for stair treads, blocking, or the border to cut waste.</div>`;
+  document.getElementById('cutListBox').innerHTML=cutHTML;
+
+  persist();
+}
+
+/* ============================================================ SAVE / LOAD / CSV / PERSIST ============================================================ */
+function collectInputs(){
+  const g=id=>document.getElementById(id);
+  return { material:state.material, profile:g('boardProfile').value, dir:state.dir, sections:state.sections,
+    prices:state.prices, photo:state.photo, collapsed,
+    boardLen:g('boardLen').value, gap:g('gap').value, waste:g('waste').value, packSize:g('packSize').value,
+    joistOC:g('joistOC').value, deckHeight:g('deckHeight').value, attached:g('attached').checked,
+    postSpacing:g('postSpacing').value, footing:g('footing').value, hasStairs:g('hasStairs').checked,
+    stairWidth:g('stairWidth').value, riserH:g('riserH').value, hasRail:g('hasRail').checked,
+    hasFascia:g('hasFascia').checked, hasSkirting:g('hasSkirting').checked, store:g('store').value, scale:g('scale').value,
+    railStyle:g('railStyle').value, hasBorder:g('hasBorder').checked, borderRows:g('borderRows').value, view3d,
+    hasHouse:g('hasHouse').checked, hasDrainage:g('hasDrainage').checked, stairSide:g('stairSide').value, stairPos:g('stairPos').value,
+    railN:g('railN').checked, railS:g('railS').checked, railE:g('railE').checked, railW:g('railW').checked,
+    showFraming:g('showFraming').checked };
+}
+function applyInputs(d){
+  state.material=d.material||'wood'; state.dir=d.dir||'length';
+  state.sections=d.sections||state.sections; state.prices=Object.assign(structuredClone(DEFAULT_PRICES),d.prices||{});
+  collapsed=d.collapsed||{}; nextId=Math.max(...state.sections.map(s=>s.id),1)+1;
+  setMaterial(state.material);
+  if(d.profile){document.getElementById('boardProfile').value=d.profile;state.profile=d.profile;}
+  setDir(state.dir);
+  ['boardLen','gap','waste','packSize','joistOC','deckHeight','postSpacing','footing','stairWidth','riserH','store','scale','railStyle','borderRows','stairSide','stairPos'].forEach(k=>{if(d[k]!=null)document.getElementById(k).value=d[k];});
+  ['attached','hasStairs','hasRail','hasFascia','hasSkirting','hasBorder','hasHouse','hasDrainage','railN','railS','railE','railW','showFraming'].forEach(k=>{if(d[k]!=null)document.getElementById(k).checked=d[k];});
+  document.getElementById('packWrap').style.display=state.material==='comp'?'block':'none';
+  document.getElementById('borderRowWrap').style.display=document.getElementById('hasBorder').checked?'flex':'none';
+  document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
+  if(d.view3d)setView(true);
+  document.getElementById('wasteVal').textContent=document.getElementById('waste').value;
+  if(d.photo){photoImg=new Image();photoImg.onload=draw;photoImg.src=d.photo;state.photo=d.photo;}
+  renderSectionList(); renderPriceEditor(); draw(); recalc();
+}
+function saveProject(){ const blob=new Blob([JSON.stringify(collectInputs(),null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='patio-deck-design.json'; a.click(); toast('Design saved'); }
+function loadProject(e){ const f=e.target.files[0]; if(!f)return; const rd=new FileReader();
+  rd.onload=()=>{try{applyInputs(JSON.parse(rd.result));toast('Design loaded');}catch(err){toast('Load failed: '+err.message);}}; rd.readAsText(f); }
+function exportCSV(){
+  if(!lastBOQ)return; const store=document.getElementById('store').value;
+  const rows=[['Category','Item','Qty','Unit','Unit price','Line total','Stock link']];
+  lastBOQ.items.forEach(it=>rows.push([CAT[it.cat].label,it.name,it.qty,it.unitLabel,it.unit.toFixed(2),it.total.toFixed(2),STORE_SEARCH[store](it.search)]));
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='deck-materials-list.csv'; a.click(); toast('Shopping list exported (CSV)');
+}
+function generateProposal(){
+  if(!lastBOQ){recalc();}
+  const r=lastBOQ, store=document.getElementById('store').value, g=id=>document.getElementById(id);
+  const client=(prompt('Client / project name for the proposal (optional):','')||'').trim();
+  draw(); let img=''; try{img=cv.toDataURL('image/png');}catch(e){}
+  const groups={}; r.items.forEach(it=>{(groups[it.cat]=groups[it.cat]||[]).push(it);});
+  let subtotal=0, rowsHTML='';
+  Object.keys(CAT).sort((a,b)=>CAT[a].order-CAT[b].order).forEach(k=>{
+    const its=groups[k]; if(!its)return; const cs=its.reduce((a,i)=>a+i.total,0); subtotal+=cs;
+    rowsHTML+=`<tr class="catrow"><td colspan="3">${CAT[k].ic} ${CAT[k].label}</td><td class="r">${money(cs)}</td></tr>`;
+    its.forEach(i=>{ rowsHTML+=`<tr class="item"><td>${i.name}${i.note?`<div class="n">${i.note}</div>`:''}</td><td class="r">${i.qty} ${i.unitLabel}</td><td class="r">${money(i.unit)}</td><td class="r">${money(i.total)}</td></tr>`; });
+  });
+  let cutRows='';
+  r.cutList.forEach(c=>{ const cutTxt=c.perRow===1?(Math.abs(c.cutTo-c.boardLen)<0.05?`full ${c.boardLen}′ (no cut)`:`cut to ${c.cutTo}′`):`${c.perRow-1}× full + 1× ${c.cutTo}′`;
+    cutRows+=`<tr class="item"><td>${c.w}′×${c.h}′</td><td class="r">${c.rows}</td><td class="r">${c.perRow}</td><td class="r">${cutTxt}</td><td class="r">${c.offRow>0.05?c.offRow+'′':'0'}</td></tr>`; });
+  const gst=subtotal*0.05, qst=subtotal*0.09975, grand=subtotal+gst+qst;
+  const mat=MATERIALS[state.material].label, dims=state.sections.map(s=>`${s.w}′×${s.h}′`).join(' + ');
+  const today=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
+  const perFt=r.area>0?money(grand/r.area):'$0';
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Deck Proposal${client?' — '+client:''}</title>
+  <style>
+    @page{margin:12mm}
+    *{box-sizing:border-box}
+    body{font:13px/1.55 "Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1c2530;margin:0;background:#eef2f5}
+    .sheet{max-width:920px;margin:20px auto;background:#fff;box-shadow:0 10px 44px rgba(20,30,45,.14);border-radius:14px;overflow:hidden}
+    .hero{background:linear-gradient(135deg,#1b2732,#263a48);color:#fff;padding:26px 34px;display:flex;align-items:center;gap:18px}
+    .hero .badge{width:54px;height:54px;border-radius:13px;background:linear-gradient(135deg,#f6a623,#e07b1a);display:grid;place-items:center;font-size:28px;box-shadow:0 5px 16px rgba(246,166,35,.45)}
+    .hero h1{margin:0;font-size:23px;font-weight:800;letter-spacing:-.02em}
+    .hero .sub{color:#9fb4c3;font-size:12px;margin-top:4px}
+    .hero .tb{margin-left:auto;text-align:right}
+    .hero .tb .lab{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#9fb4c3}
+    .hero .tb .amt{font-size:31px;font-weight:800;color:#ffcf87;letter-spacing:-.02em;line-height:1.1}
+    .hero .tb .tin{font-size:11px;color:#9fb4c3}
+    .body{padding:26px 34px}
+    .overview{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+    .card{background:#f7f9fb;border:1px solid #e6ecf1;border-radius:10px;padding:11px 13px}
+    .card .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:#8496a4;font-weight:700}
+    .card .v{font-size:15px;font-weight:700;margin-top:3px}
+    .snapwrap{margin:4px 0 24px}
+    .snap{width:100%;border:1px solid #dde4ea;border-radius:10px;display:block}
+    .cap{font-size:11px;color:#8496a4;text-align:center;margin-top:7px}
+    h2.sec{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:#5a6b7a;margin:0 0 4px;border-bottom:2px solid #eef2f5;padding-bottom:8px}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8496a4;padding:8px;border-bottom:2px solid #e6ecf1}
+    th.r,td.r{text-align:right;white-space:nowrap}
+    td{padding:8px;border-bottom:1px solid #f0f3f6;font-size:12.5px;vertical-align:top}
+    tr.catrow td{background:linear-gradient(90deg,#fbf5e9,#fff);font-weight:800;color:#8a6114;border-top:1px solid #efe3ca;letter-spacing:.01em}
+    tr.item:nth-child(even) td{background:#fbfcfd}
+    .n{color:#93a2ad;font-size:10.5px;margin-top:2px}
+    .totrow{display:flex;justify-content:flex-end;margin-top:20px}
+    .totbox{width:330px;border:1px solid #e6ecf1;border-radius:12px;overflow:hidden}
+    .totbox .row{display:flex;justify-content:space-between;padding:9px 16px;font-size:13px}
+    .totbox .row.mut{color:#5a6b7a;font-size:12px}
+    .totbox .row:not(.grand){border-bottom:1px solid #f0f3f6}
+    .totbox .grand{background:linear-gradient(135deg,#1b2732,#263a48);color:#fff;font-size:18px;font-weight:800;padding:14px 16px}
+    .totbox .grand .amt{color:#ffcf87}
+    .sign{display:grid;grid-template-columns:1fr 1fr;gap:34px;margin:32px 4px 6px}
+    .sign .line{border-top:1.5px solid #cbd4dc;padding-top:7px;font-size:11px;color:#8496a4}
+    .disc{margin-top:18px;padding:13px 15px;background:#f7f9fb;border:1px solid #e6ecf1;border-radius:10px;color:#5a6b7a;font-size:10.5px;line-height:1.55}
+    .btns{position:sticky;top:0;background:#e3e9ee;padding:12px 16px;display:flex;gap:9px;z-index:5}
+    button{font:inherit;padding:10px 18px;border-radius:9px;border:none;background:linear-gradient(135deg,#f6a623,#e07b1a);color:#241700;font-weight:800;cursor:pointer}
+    button.g{background:#cfd8e0;color:#2a3742}
+    tr,td{page-break-inside:avoid}
+    @media print{.btns{display:none}body{background:#fff}.sheet{box-shadow:none;margin:0;border-radius:0;max-width:none}}
+  </style></head><body>
+  <div class="btns"><button onclick="window.print()">🖨️ Save as PDF / Print</button><button class="g" onclick="window.close()">Close</button></div>
+  <div class="sheet">
+    <div class="hero">
+      <div class="badge">🪵</div>
+      <div><h1>Patio Deck Proposal</h1><div class="sub">${client||'Backyard patio deck'} &nbsp;·&nbsp; Prepared ${today} &nbsp;·&nbsp; Quebec pricing (${STORE_NAME[store]})</div></div>
+      <div class="tb"><div class="lab">Estimated total</div><div class="amt">${money0(grand)}</div><div class="tin">taxes in · ${perFt}/ft²</div></div>
+    </div>
+    <div class="body">
+      <div class="overview">
+        <div class="card"><div class="k">Deck area</div><div class="v">${r.area.toFixed(0)} ft²</div></div>
+        <div class="card"><div class="k">Footprint</div><div class="v">${dims}</div></div>
+        <div class="card"><div class="k">Decking material</div><div class="v">${mat}</div></div>
+        <div class="card"><div class="k">Decking boards</div><div class="v">${r.deckBoards} × ${r.boardLen}′</div></div>
+        <div class="card"><div class="k">Framing</div><div class="v">2×8 @ ${g('joistOC').value}″ · ${r.beamLines} beam(s)</div></div>
+        <div class="card"><div class="k">Footings</div><div class="v">${r.postCount}</div></div>
+        <div class="card"><div class="k">Height</div><div class="v">${g('deckHeight').value} ft</div></div>
+        ${r.stairInfo?`<div class="card"><div class="k">Stairs</div><div class="v">${r.stairInfo.risers} risers · ${r.stairInfo.treads} treads</div></div>`:'<div class="card"><div class="k">Stairs</div><div class="v">—</div></div>'}
+        <div class="card"><div class="k">Railing (exposed)</div><div class="v">${r.exposed.toFixed(0)} ft</div></div>
+      </div>
+      ${img?`<div class="snapwrap"><img class="snap" src="${img}"><div class="cap">Design preview — ${view3d?'3D view':'plan view'}</div></div>`:''}
+      <h2 class="sec">Materials &amp; cost breakdown</h2>
+      <table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Unit price</th><th class="r">Amount</th></tr></thead><tbody>${rowsHTML}</tbody></table>
+      <div class="totrow"><div class="totbox">
+        <div class="row"><span>Subtotal</span><b>${money(subtotal)}</b></div>
+        <div class="row mut"><span>GST (5%)</span><span>${money(gst)}</span></div>
+        <div class="row mut"><span>QST (9.975%)</span><span>${money(qst)}</span></div>
+        <div class="row grand"><span>Total</span><span class="amt">${money(grand)}</span></div>
+      </div></div>
+      <h2 class="sec" style="margin-top:26px">🪚 Board cut list &amp; offcuts</h2>
+      <table><thead><tr><th>Section</th><th class="r">Rows</th><th class="r">Boards / row</th><th class="r">Cut length</th><th class="r">Offcut / row</th></tr></thead><tbody>${cutRows||'<tr><td colspan="5">—</td></tr>'}</tbody></table>
+      <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">
+        <div class="card" style="flex:1;min-width:180px"><div class="k">Total decking offcut</div><div class="v">${r.offcutLf.toFixed(0)} lin ft · ${r.wastePct.toFixed(0)}% waste</div></div>
+        ${r.suggest?`<div class="card" style="flex:1;min-width:180px"><div class="k">Suggested board length</div><div class="v">${r.suggest.boardLen}′ · ${r.suggest.pct.toFixed(0)}% waste</div></div>`:''}
+      </div>
+      <div class="sign"><div class="line">Prepared by</div><div class="line">Accepted by · date</div></div>
+      <div class="disc"><b>Estimate only — not engineered plans.</b> Quantities &amp; prices are approximate and change daily; confirm current pricing and stock at ${STORE_NAME[store]}. Verify joist/beam spans, footing depth (frost line ≈ 1.5 m in Quebec), ledger attachment, and stair/railing geometry against the Quebec Construction Code &amp; RBQ, and obtain the required permit before construction.</div>
+    </div>
+  </div>
+  <script>setTimeout(()=>window.print(),400);<\/script>
+  </body></html>`;
+  const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to open the proposal');return;}
+  w.document.write(html); w.document.close(); toast('Proposal generated');
+}
+/* ============================================================ AI AUTO-FILL (optional; uses Anthropic API) ============================================================ */
+let aiImageData=null, aiImageType='image/png';
+const AI_PROMPT=`You are a deck-planning assistant. From the user's description and/or the photo, infer patio deck specifications and return ONLY a single JSON object (no prose, no markdown fences). Use best estimates in FEET/INCHES; omit fields you truly can't infer. Schema:
+{"sections":[{"w":number_feet,"h":number_feet}],"material":"wood"|"comp","boardLenFt":8|10|12|16|20,"deckHeightFt":number,"joistOC":12|16|24,"attached":boolean,"hasStairs":boolean,"stairWidthFt":number,"riserHIn":number,"hasRail":boolean,"railStyle":"aluminum"|"wood"|"composite"|"glass"|"cable","hasBorder":boolean,"borderRows":1|2,"hasFascia":boolean,"hasSkirting":boolean,"hasHouse":boolean,"hasDrainage":boolean,"notes":"short summary of assumptions"}
+If a photo shows a deck, estimate its rectangular section sizes in feet. Description/details from user:
+`;
+function openAI(){ const m=document.getElementById('aiModal'); document.getElementById('aiKey').value=localStorage.getItem('anthropicKey')||''; document.getElementById('aiStatus').textContent=''; m.classList.add('show'); }
+function closeAI(){ document.getElementById('aiModal').classList.remove('show'); }
+function loadAIPhoto(e){ const f=e.target.files[0]; if(!f)return; aiImageType=f.type||'image/png'; const rd=new FileReader(); rd.onload=()=>{ aiImageData=String(rd.result).split(',')[1]; document.getElementById('aiPhotoName').textContent=f.name; }; rd.readAsDataURL(f); }
+async function extractWithAI(){
+  const g=id=>document.getElementById(id);
+  const key=g('aiKey').value.trim(), txt=g('aiText').value.trim(), st=g('aiStatus'), btn=g('aiGo');
+  if(!key){ st.textContent='⚠️ Enter your Anthropic API key first.'; return; }
+  if(!txt && !aiImageData){ st.textContent='⚠️ Add a description or a photo.'; return; }
+  localStorage.setItem('anthropicKey',key);
+  st.textContent='⏳ Asking Claude to read your deck…'; btn.disabled=true;
+  const content=[{type:'text',text:AI_PROMPT+(txt||'(none — use the photo)')}];
+  if(aiImageData) content.push({type:'image',source:{type:'base64',media_type:aiImageType,data:aiImageData}});
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-opus-4-8',max_tokens:2000,messages:[{role:'user',content}]})});
+    if(!r.ok){ const t=await r.text(); st.textContent='❌ API error '+r.status+': '+t.slice(0,180); btn.disabled=false; return; }
+    const j=await r.json();
+    const out=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const s=out.indexOf('{'), e=out.lastIndexOf('}');
+    if(s<0||e<0) throw new Error('No JSON in response');
+    const data=JSON.parse(out.slice(s,e+1));
+    applyAIData(data);
+    st.textContent='✅ Applied. '+(data.notes||''); toast('Design updated from AI');
+    setTimeout(closeAI,1100);
+  }catch(err){ st.textContent='❌ '+err.message; }
+  btn.disabled=false;
+}
+function applyAIData(d){
+  const g=id=>document.getElementById(id), near=(v,arr,def)=>arr.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a,def);
+  if(Array.isArray(d.sections)&&d.sections.length){
+    nextId=1; state.sections=d.sections.slice(0,6).map((s,i)=>({id:nextId++,x:4+i*2,y:4+i*2,w:Math.max(1,+s.w||10),h:Math.max(1,+s.h||10)}));
+    selId=null;
+  }
+  if(d.material==='comp'||d.material==='wood') setMaterial(d.material);
+  if(d.boardLenFt) g('boardLen').value=near(+d.boardLenFt,[8,10,12,16,20],12);
+  if(d.deckHeightFt!=null) g('deckHeight').value=+d.deckHeightFt;
+  if([12,16,24].includes(+d.joistOC)) g('joistOC').value=+d.joistOC;
+  ['attached','hasStairs','hasRail','hasBorder','hasFascia','hasSkirting','hasHouse','hasDrainage'].forEach(k=>{ if(typeof d[k]==='boolean') g(k).checked=d[k]; });
+  if(d.stairWidthFt) g('stairWidth').value=+d.stairWidthFt;
+  if(d.riserHIn) g('riserH').value=+d.riserHIn;
+  if([1,2].includes(+d.borderRows)) g('borderRows').value=+d.borderRows;
+  const rs={aluminum:'rail_alum',wood:'rail_wood',composite:'rail_comp',glass:'rail_glass',cable:'rail_cable'}[d.railStyle];
+  if(rs) g('railStyle').value=rs;
+  g('borderRowWrap').style.display=g('hasBorder').checked?'flex':'none';
+  document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
+  renderSectionList(); updateSelEditor(); fitView(); recalc();
+}
+let persistT; function persist(){ clearTimeout(persistT); persistT=setTimeout(()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(collectInputs()));}catch(e){}},400); }
+let toastT; function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ============================================================ WIRE UP ============================================================ */
+['boardProfile','boardLen','gap','joistOC','deckHeight','attached','hasHouse','postSpacing','footing','hasDrainage','hasStairs','stairWidth','riserH','stairSide','stairPos','hasRail','railStyle','railN','railS','railE','railW','hasBorder','borderRows','hasFascia','hasSkirting','store','packSize'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{
+    if(id==='boardProfile')state.profile=document.getElementById(id).value;
+    if(id==='hasBorder')document.getElementById('borderRowWrap').style.display=document.getElementById('hasBorder').checked?'flex':'none';
+    if(id==='stairPos')document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
+    draw(); recalc();
+  });
+});
+document.getElementById('waste').addEventListener('input',e=>{document.getElementById('wasteVal').textContent=e.target.value;recalc();});
+document.getElementById('scale').addEventListener('input',draw);
+document.getElementById('showFraming').addEventListener('change',draw);
+document.getElementById('snap').addEventListener('input',()=>{});
+document.getElementById('photoOp').addEventListener('input',draw);
+
+(function init(){
+  buildProfileOptions(); renderSectionList(); renderPriceEditor();
+  let restored=false;
+  try{ const saved=localStorage.getItem(LS_KEY); if(saved){applyInputs(JSON.parse(saved));restored=true;} }catch(e){}
+  if(!restored){ draw(); recalc(); }
+})();
+</script>
+</body>
+</html>
