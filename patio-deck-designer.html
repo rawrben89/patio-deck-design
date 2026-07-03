@@ -1024,6 +1024,15 @@ function drawDecking2D(){
     }
   });
 }
+// total number of butt joints across the deck at the current board length (0 = boards span in one piece)
+function buttJointCount(){
+  const g=id=>document.getElementById(id);
+  const face=(findProfile(state.profile)||{face:5.5}).face, gap=parseFloat(g('gap').value)||0, step=(face+gap)/12;
+  const boardLen=parseFloat(g('boardLen').value)||12;
+  const borderW=g('hasBorder').checked?(parseInt(g('borderRows').value)||1)*step:0;
+  let n=0; state.sections.forEach(s=>{ const run=(state.dir==='length'?s.h:s.w)-2*borderW; if(run>0.01) n+=Math.max(0,Math.ceil(run/boardLen)-1); });
+  return n;
+}
 // footing/post coordinates (absolute + offset from the house-side corner) — shared by the
 // overlay and the permit footing schedule
 function footingCoords(){
@@ -1181,7 +1190,9 @@ function draw(){
   const fram=document.getElementById('showFraming').checked
     ? ` &nbsp;|&nbsp; <span style="color:#a9814a">━ joists</span> <span style="color:#c56a1c">━ beam ▪ post</span> <span style="color:#7d9b5c">┅ blocking</span> <span style="color:#d1533a">┅ ledger</span>`
     : (document.getElementById('showBoards').checked
-      ? ` &nbsp;|&nbsp; <span style="color:#63d3c4">┅ board joint (butt end) · “cut” = final piece per run</span>`
+      ? (buttJointCount()>0
+        ? ` &nbsp;|&nbsp; <span style="color:#63d3c4">┅ board joint (butt end) · “cut” = final piece per run</span>`
+        : ` &nbsp;|&nbsp; <span style="color:#63d3c4">🪵 boards span in one piece — no butt joints (shorten the board length to see them)</span>`)
       : ` &nbsp;|&nbsp; drag edges to resize · edges snap to neighbours · drag stairs to move`);
   document.getElementById('cvLegend').innerHTML=`Grid = 1 ft · bold = 5 ft${fram} &nbsp;|&nbsp; ${state.sections.length} section${state.sections.length>1?'s':''}`;
 }
@@ -1318,23 +1329,28 @@ function draw3D(){
       });
     }
   });
-  // generalized stairs (any side/position), drawn last so it sits in front
+  // generalized stairs (any side/position), drawn last so it sits in front.
+  // Draws `risers` riser faces + `treads`(=risers-1) tread surfaces — matching the 2D plan
+  // and the takeoff: first riser at the deck edge, last riser lands on grade.
   const stg=stg3;
   if(stg){
-    const {along,out,sx,sy,stairW,treads,H:sh,run}=stg;
-    for(let i=0;i<treads;i++){
-      const z=sh-(sh/treads)*i, z2=z-(sh/treads);
-      const bx=sx+out[0]*run*i, by=sy+out[1]*run*i, fx=bx+out[0]*run, fy=by+out[1]*run;
-      const a=[bx,by],b=[bx+along[0]*stairW,by+along[1]*stairW],c=[fx+along[0]*stairW,fy+along[1]*stairW],d=[fx,fy];
-      quad(P(...a,z),P(...b,z),P(...c,z),P(...d,z),col.top,'#0006');           // tread top
-      quad(P(...d,z),P(...c,z),P(...c,z2),P(...d,z2),col.s,'#0006');           // riser
+    const {along,out,sx,sy,stairW,risers,treads,H:sh,run}=stg;
+    const rh=sh/risers, totRun=treads*run;
+    const riserQ=(u,zTop,zBot)=>{ const ax=sx+out[0]*u,ay=sy+out[1]*u,bx=ax+along[0]*stairW,by=ay+along[1]*stairW;
+      quad(P(ax,ay,zTop),P(bx,by,zTop),P(bx,by,zBot),P(ax,ay,zBot),col.s,'#0006'); };
+    const treadQ=(u0,u1,z)=>{ const bx=sx+out[0]*u0,by=sy+out[1]*u0,fx=sx+out[0]*u1,fy=sy+out[1]*u1;
+      quad(P(bx,by,z),P(bx+along[0]*stairW,by+along[1]*stairW,z),P(fx+along[0]*stairW,fy+along[1]*stairW,z),P(fx,fy,z),col.top,'#0006'); };
+    for(let k=1;k<=treads;k++){                                       // top → bottom: riser, then its tread
+      riserQ((k-1)*run, sh-(k-1)*rh, sh-k*rh);
+      treadQ((k-1)*run, k*run, sh-k*rh);
     }
+    riserQ(totRun, rh, 0);                                            // final riser lands on grade
     // stringers on both sides
     [0,stairW].forEach(o=>{ const ax=sx+along[0]*o, ay=sy+along[1]*o;
-      line([ax,ay,sh],[ax+out[0]*run*treads,ay+out[1]*run*treads,0],'#7b4e26',2.6); });
+      line([ax,ay,sh],[ax+out[0]*totRun,ay+out[1]*totRun,0],'#7b4e26',2.6); });
     // sloped handrail (code: required at 3+ risers)
-    if(hasRail && treads>=2){ const hh=2.9;
-      [0,stairW].forEach(o=>{ const ax=sx+along[0]*o, ay=sy+along[1]*o, bx=ax+out[0]*run*treads, by=ay+out[1]*run*treads;
+    if(hasRail && risers>=3){ const hh=2.9;
+      [0,stairW].forEach(o=>{ const ax=sx+along[0]*o, ay=sy+along[1]*o, bx=ax+out[0]*totRun, by=ay+out[1]*totRun;
         line([ax,ay,sh+hh],[bx,by,hh],col.railT,2.2);        // rail follows the slope
         line([ax,ay,sh],[ax,ay,sh+hh],col.railT,2.4);        // top post
         line([bx,by,0],[bx,by,hh],col.railT,2.4); });        // bottom post
@@ -1397,7 +1413,8 @@ function drawElevation(){
   const attached=g('attached').checked, hasRail=g('hasRail').checked;
   const railH=hasRail?(H>5.9?3.5:3):0;
   const hasStairs=g('hasStairs').checked && H>0.3;
-  const riser=parseFloat(g('riserH').value)||7.5, treads=hasStairs?Math.max(1,Math.round(H*12/riser)-1):0;
+  const riser=parseFloat(g('riserH').value)||7.5, risers=hasStairs?Math.max(1,Math.round(H*12/riser)):0;
+  const treads=hasStairs?Math.max(1,risers-1):0;
   const stairRun=hasStairs?treads*(10.5/12):0;
   const th=0.62;                                                 // deck slab thickness (ft, schematic)
   const wxMin=-1.2, wxMax=depth+stairRun+1.2, wyMax=H+railH+0.7, wyMin=-(frost+0.7);
@@ -1447,10 +1464,12 @@ function drawElevation(){
     dimV(depth+0.55,H,top,fmtLen(railH)+' rail',X,Y,s);
   }
   // stairs at front
-  if(hasStairs){ const stepH=H/treads, stepR=stairRun/treads;
-    for(let i=0;i<treads;i++){ const x0=depth+i*stepR, y0=H-i*stepH;
-      seg(x0,y0,x0+stepR,y0,'#d1a06a',2); seg(x0+stepR,y0,x0+stepR,y0-stepH,'#a06f39',1.6); }
-    seg(depth,H,depth+stairRun,0,'#7b4e26',2.4);   // stringer
+  if(hasStairs){ const rh=H/risers, tr=stairRun/treads;      // risers risers · treads treads (matches plan/3D)
+    for(let k=1;k<=treads;k++){ const x0=depth+(k-1)*tr, z=H-k*rh;
+      seg(x0,z,x0+tr,z,'#d1a06a',2);                          // tread surface
+      seg(x0,H-(k-1)*rh,x0,z,'#a06f39',1.6); }                // riser behind the tread
+    seg(depth+treads*tr,rh,depth+treads*tr,0,'#a06f39',1.6);  // final riser to grade
+    seg(depth,H,depth+stairRun,0,'#7b4e26',2.4);              // stringer
   }
   // dimensions
   dimV(-1.5,0,H,fmtLen(H)+' high',X,Y,s);
