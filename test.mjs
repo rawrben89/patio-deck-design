@@ -124,6 +124,9 @@ function stairOnEdge(label){
   ok(a0 >= es.lo - 1e-6 && a1 <= es.hi + 1e-6, `${label}: stair flight stays within the deck edge`);
 }
 reset(); store.stairSide.value='S'; store.stairPos.value='0';  stairOnEdge('stairs at 0%');
+// position 0 must clear the corner (not jam flush) when the edge has room
+(() => { const U=unionMetrics(state.sections), st=getStairGeom(U);
+  ok(st && st.sx > U.minX + 0.5, 'stairs at 0% keep clearance from the corner'); })();
 reset(); store.stairSide.value='S'; store.stairPos.value='100'; stairOnEdge('stairs at 100%');
 reset(); store.stairSide.value='E'; store.stairPos.value='95';  stairOnEdge('stairs right edge 95%');
 // L-shape: bottom edge is only the lower-left rectangle; stairs on S must sit on it, not the notch

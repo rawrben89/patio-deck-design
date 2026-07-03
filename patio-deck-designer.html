@@ -670,6 +670,7 @@ const STORE_SEARCH = {
 };
 const STORE_NAME={canac:'Canac',rona:'Rona',homedepot:'Home Depot',patrickmorin:'Patrick Morin'};
 const SECTION_COLORS=['#f6a623','#3fb6a8','#c084fc','#5bd68a','#ff8fab','#63b3ed'];
+const STAIR_CORNER_CLEAR=0.75;   // ft the stair flight keeps clear of a deck corner (post + railing)
 const LS_KEY='patioDeckDesign.v2';
 
 /* ============================================================ STATE ============================================================ */
@@ -809,9 +810,12 @@ function getStairGeom(U){
   const stairW=parseFloat(g('stairWidth').value)||4;
   const pos=(parseFloat(g('stairPos').value)||50)/100, side=g('stairSide').value;
   const {minX,minY,maxX,maxY}=U;
-  // map & clamp the stair centre to the actual deck edge on this side (not the bounding box)
+  // map & clamp the stair centre to the actual deck edge, keeping a corner clearance so the
+  // flight never jams into the corner post / side railing (slider spans the clear range)
   const es=edgeSpan(side,U), half=stairW/2, L=es.hi-es.lo;
-  const centre = L>stairW ? es.lo+Math.min(Math.max(pos*L,half),L-half) : (es.lo+es.hi)/2;
+  const margin=Math.min(STAIR_CORNER_CLEAR, Math.max(0,(L-stairW)/2));
+  const cLo=es.lo+half+margin, cHi=es.hi-half-margin;
+  const centre = cLo<=cHi ? cLo+pos*(cHi-cLo) : (es.lo+es.hi)/2;
   let along,out,cx,cy;
   if(side==='S'){along=[1,0];out=[0,1];cx=centre;cy=maxY;}
   else if(side==='N'){along=[1,0];out=[0,-1];cx=centre;cy=minY;}
@@ -1318,10 +1322,11 @@ function dragStairTo(pt){
   // pick the nearest edge, then drive the stair CENTRE along the REAL deck edge on that side
   let side,coord; if(m===dS){side='S';coord=pt.x;} else if(m===dN){side='N';coord=pt.x;} else if(m===dE){side='E';coord=pt.y;} else {side='W';coord=pt.y;}
   const es=edgeSpan(side,b), L=es.hi-es.lo;
+  const margin=Math.min(STAIR_CORNER_CLEAR, Math.max(0,(L-stairW)/2));   // corner clearance
   coord=snapFt(coord);                                                   // snap centre to the snap increment
-  const lo=es.lo+(L>stairW?half:L/2), hi=es.hi-(L>stairW?half:L/2);
-  coord=Math.max(lo,Math.min(hi,coord));                                 // keep stairs fully on the deck edge
-  const pos=L>0?Math.max(0,Math.min(1,(coord-es.lo)/L)):0.5;
+  const cLo=es.lo+half+margin, cHi=es.hi-half-margin;
+  coord=cLo<=cHi ? Math.max(cLo,Math.min(cHi,coord)) : (es.lo+es.hi)/2;  // clear corners, stay on-edge
+  const pos=cHi>cLo?(coord-cLo)/(cHi-cLo):0.5;
   document.getElementById('stairSide').value=side;
   const pv=Math.round(pos*100); document.getElementById('stairPos').value=pv; document.getElementById('stairPosVal').textContent=pv;
 }
