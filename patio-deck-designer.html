@@ -16,9 +16,10 @@
     --radius:12px;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
+  html,body{margin:0;height:100%;overflow-x:hidden}
   body{background:radial-gradient(1200px 800px at 80% -10%,#16222b 0,var(--bg) 55%);color:var(--txt);
-    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;
+    -webkit-text-size-adjust:100%;text-size-adjust:100%}
   h1,h2,h3{margin:0}
   h2{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;
     display:flex;align-items:center;gap:7px;margin-bottom:11px}
@@ -173,8 +174,32 @@
     pointer-events:none;transition:all .25s;z-index:50}
   #toast.show{opacity:1;transform:translate(-50%,0)}
 
+  /* code check */
+  .code-grp .cc{font-size:12px;line-height:1.5;padding:7px 0;border-top:1px solid var(--line);display:block}
+  .code-grp .cc:first-of-type{border-top:none;padding-top:2px}
+  .code-grp .cc.ok{color:#bfe6cd}
+  .code-grp .cc.bad{color:#ffcf9e}
+  .code-grp .cc.info{color:var(--muted)}
+  .code-grp h2{margin-bottom:6px}
+  .cc-note{font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted2);font-size:10px;margin-left:auto}
+
   @media (max-width:1150px){.wrap{grid-template-columns:1fr;height:auto}.col{height:auto;max-height:none}
     .col.mid .canvas-shell{height:60vh}}
+  @media (max-width:600px){
+    header{padding:9px 12px;gap:10px}
+    header .badge{width:32px;height:32px;font-size:17px}
+    header h1{font-size:15px}
+    header .sub{display:none}
+    header .actions{gap:5px}
+    header .actions button{padding:6px 9px;font-size:12px}
+    .col,.col.mid{padding:11px}
+    .col.right .inner{padding:12px 12px 0}
+    .col.mid .canvas-shell{height:56vh;min-height:300px}
+    .canvas-hint{white-space:normal;max-width:calc(100% - 24px);text-align:center}
+    .kpi .v{font-size:18px}.tot.big{font-size:19px}
+    /* 16px inputs stop iOS from auto-zooming the viewport on focus */
+    input[type=number],input[type=text],select,.modal textarea{font-size:16px}
+  }
   @media print{
     body{background:#fff;color:#000}
     header .actions,.col.left,.col.mid,.canvas-tools,.foot,.banner,.no-print,details{display:none!important}
@@ -197,6 +222,8 @@
     <button class="small ghost" onclick="exportCSV()">📄 CSV</button>
     <button class="small ghost" onclick="saveProject()">💾 Save</button>
     <button class="small ghost" onclick="document.getElementById('loadFile').click()">📂 Load</button>
+    <button class="small ghost" onclick="shareState()">🔗 Share</button>
+    <button class="small ghost" onclick="newDesign()">🆕 New</button>
     <input id="loadFile" type="file" accept=".json" style="display:none" onchange="loadProject(event)">
   </div>
 </header>
@@ -313,6 +340,8 @@
         <button id="view3dBtn" onclick="setView(true)">🧊 3D view</button>
       </div>
       <button class="small" id="drawBtn" onclick="toggleDraw()">✏️ Draw: OFF</button>
+      <button class="small ghost" id="undoBtn" title="Undo (Ctrl+Z)" onclick="undo()" disabled>↶</button>
+      <button class="small ghost" id="redoBtn" title="Redo (Ctrl+Shift+Z)" onclick="redo()" disabled>↷</button>
       <label class="pill" style="cursor:pointer"><input type="checkbox" id="showFraming" style="margin:0 4px 0 0"> 🧱 Framing</label>
       <label class="pill" style="cursor:pointer">📷 Photo
         <input type="file" id="photo" accept="image/*" onchange="loadPhoto(event)" style="width:0;height:0;opacity:0;position:absolute">
@@ -323,7 +352,7 @@
     </div>
     <div class="canvas-shell">
       <canvas id="cv" width="1000" height="680"></canvas>
-      <div class="canvas-hint" id="cvHint">Drag to draw · click a section to select &amp; move · Del to remove</div>
+      <div class="canvas-hint" id="cvHint">Drag to draw · tap a section to select &amp; move · pinch or scroll to zoom · Del to remove</div>
       <div class="canvas-legend" id="cvLegend"></div>
       <div class="sel-editor" id="selEditor">
         <div class="se-title"><span class="sw" id="seSwatch"></span> Section <span id="seNum"></span></div>
@@ -377,6 +406,7 @@
 
     <div id="warnBox"></div>
     <div id="structNote"></div>
+    <div id="codeNote"></div>
 
     <div class="grp">
       <h2><span class="ic">🪚</span> Board cut list &amp; offcuts</h2>
@@ -874,7 +904,8 @@ function toggleDraw(){ drawing=!drawing; document.getElementById('drawBtn').text
 function boundsFt(){ return {minX:Math.min(...state.sections.map(s=>s.x)),minY:Math.min(...state.sections.map(s=>s.y)),maxX:Math.max(...state.sections.map(s=>s.x+s.w)),maxY:Math.max(...state.sections.map(s=>s.y+s.h))}; }
 function handlePts(s){ return {nw:[s.x,s.y],n:[s.x+s.w/2,s.y],ne:[s.x+s.w,s.y],e:[s.x+s.w,s.y+s.h/2],se:[s.x+s.w,s.y+s.h],s:[s.x+s.w/2,s.y+s.h],sw:[s.x,s.y+s.h],w:[s.x,s.y+s.h/2]}; }
 function hitHandle(e){ const s=state.sections.find(x=>x.id===selId); if(!s)return null; const p=evtPx(e), H=handlePts(s);
-  for(const k in H){ if(Math.hypot(px(H[k][0])-p.x,px(H[k][1])-p.y)<11) return k; } return null; }
+  const R=(e&&e.pointerType==='touch')||lastPtrType==='touch'?22:11;   // fat handles for fingertips
+  for(const k in H){ if(Math.hypot(px(H[k][0])-p.x,px(H[k][1])-p.y)<R) return k; } return null; }
 function resizeSection(s,h,pt){ let x0=s.x,y0=s.y,x1=s.x+s.w,y1=s.y+s.h;
   if(h.includes('e'))x1=Math.max(x0+1,pt.x); if(h.includes('w'))x0=Math.max(0,Math.min(x1-1,pt.x));
   if(h.includes('s'))y1=Math.max(y0+1,pt.y); if(h.includes('n'))y0=Math.max(0,Math.min(y1-1,pt.y));
@@ -899,8 +930,21 @@ function updateSelEditor(){
   box.classList.add('show');
 }
 
+// ---- multi-touch / pinch-zoom tracking (2 fingers = zoom; 1 finger = draw/move as before) ----
+const activePointers=new Map(); let pinch=null, lastPtrType='mouse';
+function startPinch(){ const p=[...activePointers.values()];
+  pinch={ dist:Math.hypot(p[0].clientX-p[1].clientX,p[0].clientY-p[1].clientY),
+          scale:parseFloat(document.getElementById('scale').value)||14, zoom:zoom3d }; }
+function doPinch(){ const p=[...activePointers.values()]; if(p.length<2)return;
+  const d=Math.hypot(p[0].clientX-p[1].clientX,p[0].clientY-p[1].clientY), ratio=d/(pinch.dist||1);
+  if(view3d){ zoom3d=Math.max(0.6,Math.min(1.8,pinch.zoom*ratio)); }
+  else { document.getElementById('scale').value=Math.max(4,Math.min(40,Math.round(pinch.scale*ratio))); }
+  draw(); }
+
 cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId,e); lastPtrType=e.pointerType||'mouse';
+  if(activePointers.size===2){ startPinch(); orbit=null; dragStart=dragCur=null; resizing=null; stairDrag=false; moveOffset=null; return; }
   if(view3d){ orbit={mx:e.clientX,my:e.clientY,az:az3d,el:el3d,moved:false}; return; }
   const pt=evtFt(e);
   if(drawing){ dragStart=pt; dragCur=pt; return; }
@@ -912,6 +956,8 @@ cv.addEventListener('pointerdown',e=>{
   renderSectionList(); updateSelEditor(); draw();
 });
 cv.addEventListener('pointermove',e=>{
+  if(activePointers.has(e.pointerId)) activePointers.set(e.pointerId,e);
+  if(pinch){ doPinch(); return; }
   if(view3d){ if(orbit){ const dx=e.clientX-orbit.mx, dy=e.clientY-orbit.my; if(Math.abs(dx)+Math.abs(dy)>3)orbit.moved=true; az3d=orbit.az+dx*0.01; el3d=Math.max(0.12,Math.min(1.45,orbit.el-dy*0.008)); draw(); } return; }
   if(drawing&&dragStart){ dragCur=evtFt(e); draw(); return; }
   if(resizing){ const s=state.sections.find(x=>x.id===resizing.id); resizeSection(s,resizing.handle,evtFt(e)); draw(); updateSelEditor(); return; }
@@ -921,7 +967,10 @@ cv.addEventListener('pointermove',e=>{
   if(drawing){ cv.style.cursor='crosshair'; return; }
   const hh=hitHandle(e); cv.style.cursor = hh?CUR[hh] : (stairHit(evtFt(e))?'grab' : (hitSection(evtFt(e))?'move':'default'));
 });
-cv.addEventListener('pointerup',e=>{
+function endPointer(e){
+  activePointers.delete(e.pointerId);
+  if(activePointers.size<2) pinch=null;
+  if(activePointers.size>=1) return;   // fingers still down after a pinch — don't commit/select
   if(view3d){ if(orbit&&!orbit.moved){ selId=pick3D(e); renderSectionList(); updateSelEditor(); draw(); } orbit=null; return; }
   if(drawing&&dragStart){
     const x=Math.min(dragStart.x,dragCur.x),y=Math.min(dragStart.y,dragCur.y),w=Math.abs(dragCur.x-dragStart.x),h=Math.abs(dragCur.y-dragStart.y);
@@ -932,12 +981,19 @@ cv.addEventListener('pointerup',e=>{
   if(resizing){ resizing=null; renderSectionList(); recalc(); return; }
   if(stairDrag){ stairDrag=false; recalc(); return; }
   if(moveOffset){ moveOffset=null; renderSectionList(); recalc(); }
-});
+}
+cv.addEventListener('pointerup',endPointer);
+cv.addEventListener('pointercancel',endPointer);
 cv.addEventListener('wheel',e=>{ e.preventDefault();
   if(view3d){ zoom3d=Math.max(0.6,Math.min(1.8, zoom3d*(e.deltaY<0?1.1:0.9))); draw(); }
   else { const el=document.getElementById('scale'); let v=parseFloat(el.value)||14; v=Math.max(6,Math.min(34, Math.round(v+(e.deltaY<0?2:-2)))); el.value=v; draw(); }
 },{passive:false});
 document.addEventListener('keydown',e=>{ if((e.key==='Delete'||e.key==='Backspace')&&selId!==null&&document.activeElement.tagName!=='INPUT'){ delSection(selId); } });
+document.addEventListener('keydown',e=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;   // let inputs do native text undo
+  if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')){ e.preventDefault(); e.shiftKey?redo():undo(); }
+  else if((e.ctrlKey||e.metaKey)&&(e.key==='y'||e.key==='Y')){ e.preventDefault(); redo(); }
+});
 document.getElementById('seW').addEventListener('input',e=>{ const s=state.sections.find(x=>x.id===selId); if(s){s.w=Math.max(1,parseFloat(e.target.value)||1); renderSectionList(); draw(); recalc();} });
 document.getElementById('seH').addEventListener('input',e=>{ const s=state.sections.find(x=>x.id===selId); if(s){s.h=Math.max(1,parseFloat(e.target.value)||1); renderSectionList(); draw(); recalc();} });
 document.getElementById('seDel').addEventListener('click',()=>{ if(selId!=null)delSection(selId); });
@@ -1160,6 +1216,8 @@ function recalc(){
       ${r.stairInfo?`Stairs: ${r.stairInfo.risers} risers / ${r.stairInfo.treads} treads.`:''}
       <span style="color:#7fb0c4">Toggle <b>🧱 Framing</b> above the plan to see it drawn.</span>
     </div></div>`;
+
+  document.getElementById('codeNote').innerHTML=codeCheck(r);
 
   // ---- board cut list ----
   const dirWord=state.dir==='length'?'length':'width';
@@ -1393,8 +1451,68 @@ function applyAIData(d){
   document.getElementById('stairPosVal').textContent=document.getElementById('stairPos').value;
   renderSectionList(); updateSelEditor(); fitView(); recalc();
 }
-let persistT; function persist(){ clearTimeout(persistT); persistT=setTimeout(()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(collectInputs()));}catch(e){}},400); }
+let persistT; function persist(){ clearTimeout(persistT); persistT=setTimeout(()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(collectInputs()));}catch(e){} snapshot();},400); }
 let toastT; function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ============================================================ UNDO / REDO ============================================================ */
+let undoStack=[], undoPos=-1, histLock=false;
+function updateUndoUI(){ const u=document.getElementById('undoBtn'),r=document.getElementById('redoBtn'); if(u)u.disabled=undoPos<=0; if(r)r.disabled=undoPos>=undoStack.length-1; }
+function snapshot(){ if(histLock)return; const s=JSON.stringify(collectInputs());
+  if(undoStack[undoPos]===s)return;
+  undoStack=undoStack.slice(0,undoPos+1); undoStack.push(s); if(undoStack.length>60)undoStack.shift();
+  undoPos=undoStack.length-1; updateUndoUI(); }
+function undo(){ if(undoPos<=0)return; undoPos--; histLock=true; applyInputs(JSON.parse(undoStack[undoPos])); setTimeout(()=>histLock=false,550); updateUndoUI(); toast('Undo'); }
+function redo(){ if(undoPos>=undoStack.length-1)return; undoPos++; histLock=true; applyInputs(JSON.parse(undoStack[undoPos])); setTimeout(()=>histLock=false,550); updateUndoUI(); toast('Redo'); }
+
+/* ============================================================ SHARE LINK / NEW ============================================================ */
+function shareState(){
+  const d=collectInputs(); const hadPhoto=!!d.photo; delete d.photo;   // keep the URL small
+  let b64; try{ b64=btoa(unescape(encodeURIComponent(JSON.stringify(d)))); }catch(e){ toast('Could not encode design'); return; }
+  const url=location.origin+location.pathname+'#d='+b64;
+  try{ history.replaceState(null,'','#d='+b64); }catch(e){}
+  const done=()=>toast('Share link copied'+(hadPhoto?' — photo not included':''));
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done,()=>prompt('Copy this share link:',url)); }
+  else prompt('Copy this share link:',url);
+}
+function decodeShare(){
+  const m=(location.hash||'').match(/[#&]d=([^&]+)/); if(!m)return null;
+  try{ return JSON.parse(decodeURIComponent(escape(atob(m[1])))); }catch(e){ return null; }
+}
+function newDesign(){
+  if(!confirm('Start a new design? Your current one will be cleared.'))return;
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  window.location.replace(location.pathname);   // reload fresh, drop any #share hash
+}
+
+/* ============================================================ QUÉBEC CODE CHECK (general guidance) ============================================================ */
+function codeCheck(r){
+  const g=id=>document.getElementById(id), rows=[];
+  const li=(ok,txt)=>rows.push(`<div class="cc ${ok===true?'ok':ok===false?'bad':'info'}">${ok===true?'✅':ok===false?'⚠️':'ℹ️'} ${txt}</div>`);
+  const heightFt=parseFloat(g('deckHeight').value)||0;
+  // Guardrails — CNB/Québec: guard required when walking surface > 600 mm (~24″) above grade
+  if(heightFt>2){
+    const tall=heightFt>5.9, needH=tall?42:36;
+    li(g('hasRail').checked, `Guardrail <b>required</b> — surface ${heightFt}′ (&gt; 2′ / 600 mm) above grade. Min height <b>${needH}″</b> (${tall?'1070':'900'} mm).${g('hasRail').checked?'':' <b>Railing is currently OFF.</b>'}`);
+    li('info','Guard openings must reject a <b>4″ (100 mm) sphere</b> — keep baluster gaps ≤ 4″.');
+  } else {
+    li('info','No guardrail required by code (surface ≤ 2′ / 600 mm above grade) — optional.');
+  }
+  // Stairs — max riser 200 mm, min run 255 mm, handrail at 3+ risers
+  if(g('hasStairs').checked && r.stairInfo){
+    const riser=parseFloat(g('riserH').value)||0;
+    li(riser<=7.875&&riser>=5, `Stair risers <b>${riser}″</b> — code range 5″–<b>7-7/8″ (200 mm)</b>; ${r.stairInfo.risers} risers, ${r.stairInfo.treads} treads.`);
+    li('info','Min tread run <b>10″ (255 mm)</b>; a <b>handrail</b> (34″–38″) is required on stairs with 3+ risers.');
+  }
+  // Footings / frost
+  const block=g('footing').value==='block';
+  li(!block||heightFt<=1, `Footings must bear <b>below the frost line</b> — typically <b>1.2–1.5 m (4–5 ft)</b> in Québec (varies by municipality). ${block?'Deck blocks sit on grade → floating/ground-level decks only, not frost-protected.':'Sonotubes must reach frost depth.'}`);
+  // Joist span
+  li(r.maxSpan<=r.joistSpanMax, `Joist span <b>${r.maxSpan.toFixed(1)}′</b> vs <b>${r.joistSpanMax}′</b> max for 2×8 @ ${g('joistOC').value}″ O.C.`);
+  // Ledger
+  if(g('attached').checked) li('info','Attached deck: fasten the <b>ledger</b> with lag/through-bolts + flashing (not nails), and use joist hangers.');
+  return `<div class="grp code-grp"><h2><span class="ic">📐</span> Code check <span class="cc-note">Québec / CNB — planning guidance, not a permit</span></h2>${rows.join('')}
+    <div class="hint" style="margin-top:8px">Summarizes the Code de construction du Québec / National Building Code for planning only. Most decks need a <b>municipal permit</b> — always confirm locally.</div></div>`;
+}
 
 /* ============================================================ WIRE UP ============================================================ */
 ['boardProfile','boardLen','gap','joistOC','deckHeight','attached','hasHouse','postSpacing','footing','hasDrainage','hasStairs','stairWidth','riserH','stairSide','stairPos','hasRail','railStyle','railN','railS','railE','railW','hasBorder','borderRows','hasFascia','hasSkirting','store','packSize'].forEach(id=>{
@@ -1413,9 +1531,13 @@ document.getElementById('photoOp').addEventListener('input',draw);
 
 (function init(){
   buildProfileOptions(); renderSectionList(); renderPriceEditor();
-  let restored=false;
-  try{ const saved=localStorage.getItem(LS_KEY); if(saved){applyInputs(JSON.parse(saved));restored=true;} }catch(e){}
-  if(!restored){ draw(); recalc(); }
+  let loaded=false;
+  const shared=decodeShare();                                  // 1) a shared #d= link wins
+  if(shared){ try{ applyInputs(shared); loaded=true; setTimeout(()=>toast('Loaded shared design'),300); }catch(e){} }
+  if(!loaded){ try{ const saved=localStorage.getItem(LS_KEY);  // 2) else restore autosaved session
+    if(saved){ applyInputs(JSON.parse(saved)); loaded=true; setTimeout(()=>toast('Restored your last session'),300); } }catch(e){} }
+  if(!loaded){ draw(); recalc(); }
+  undoStack=[JSON.stringify(collectInputs())]; undoPos=0; updateUndoUI();   // seed history baseline
 })();
 </script>
 </body>
