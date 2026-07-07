@@ -202,6 +202,51 @@
   .help:hover{border-color:var(--accent);color:var(--accent)}
   @media (max-width:600px){.tpl-grid{grid-template-columns:1fr}}
 
+  /* cost breakdown bar */
+  .costbar-wrap{margin-bottom:13px}
+  .costbar{display:flex;height:14px;border-radius:7px;overflow:hidden;border:1px solid var(--line2);background:var(--bg2)}
+  .costbar i{height:100%;display:block}
+  .costleg{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:8px;font-size:11px;color:var(--muted)}
+  .costleg .it{display:inline-flex;align-items:center;gap:5px}
+  .costleg .dot{width:9px;height:9px;border-radius:3px;flex:none}
+  .costleg b{color:var(--txt);font-weight:700}
+
+  /* pre-export design review */
+  .review{border-radius:10px;padding:10px 12px;margin-bottom:13px;font-size:12px;border:1px solid;line-height:1.5}
+  .review.ok{background:#15241c;border-color:#295239;color:#bfe6cd}
+  .review.warn{background:#2a2418;border-color:#5c4e26;color:#ffe4b0}
+  .review .rtitle{font-weight:700;display:flex;align-items:center;gap:7px}
+  .review ul{margin:5px 0 0;padding-left:18px}
+  .review li{margin:2px 0}
+
+  /* light theme — chrome only; the plan canvas stays a dark drawing board */
+  :root[data-theme="light"]{
+    --bg:#e9eef2; --bg2:#ffffff; --panel:#ffffff; --panel2:#f3f6f8; --panel3:#e7edf1;
+    --line:#dde4e9; --line2:#c6d1d9; --txt:#17242c; --muted:#5c6c77; --muted2:#8494a0;
+    --shadow:0 6px 22px rgba(35,55,75,.13);
+  }
+  :root[data-theme="light"] body{background:linear-gradient(180deg,#eef3f6,#e4ebf0)}
+  :root[data-theme="light"] header{background:linear-gradient(180deg,#ffffff,#eef3f6);box-shadow:0 2px 10px rgba(30,50,70,.08)}
+  :root[data-theme="light"] .col.left,:root[data-theme="light"] .col.right{background:linear-gradient(180deg,#ffffff,#f2f6f8)}
+  :root[data-theme="light"] .col.mid{background:#0a0e11}
+
+  /* mobile tab bar — one column at a time on phones/tablets */
+  .mobtabs{display:none}
+  @media (max-width:1150px){
+    .mobtabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--panel);
+      border-top:1px solid var(--line2);box-shadow:0 -3px 14px rgba(0,0,0,.28)}
+    .mobtabs button{flex:1;border:none;border-radius:0;background:transparent;padding:9px 6px;font-size:11px;
+      display:flex;flex-direction:column;gap:2px;color:var(--muted);font-weight:600}
+    .mobtabs button .mi{font-size:17px}
+    .mobtabs button:hover{transform:none;background:var(--panel2)}
+    .mobtabs button.on{color:var(--accent)}
+    body{padding-bottom:60px}
+    .wrap[data-mob="design"] .col.mid,.wrap[data-mob="design"] .col.right{display:none}
+    .wrap[data-mob="plan"] .col.left,.wrap[data-mob="plan"] .col.right{display:none}
+    .wrap[data-mob="cost"] .col.left,.wrap[data-mob="cost"] .col.mid{display:none}
+    .wrap[data-mob="plan"] .col.mid .canvas-shell{height:72vh}
+  }
+
   /* toast */
   #toast{position:fixed;bottom:20px;left:50%;transform:translate(-50%,20px);background:#20303a;border:1px solid #2f4a58;
     color:#e7f2f8;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:var(--shadow);opacity:0;
@@ -251,6 +296,7 @@
     <div class="sub">Design it yourself · full material takeoff · Quebec pricing &amp; live stock links</div>
   </div>
   <div class="actions no-print">
+    <button class="small ghost" id="themeBtn" onclick="toggleTheme()" title="Light / dark theme">🌙</button>
     <button class="small ghost" id="unitsBtn" onclick="toggleUnits()" title="Toggle feet / metric">⇄ ft</button>
     <button class="small ghost" id="docLangBtn" onclick="toggleDocLang()" title="Language for the proposal / permit documents">🌐 EN</button>
     <button class="small ghost" onclick="openTemplates()" title="Start from a ready-made deck">🎯 Templates</button>
@@ -278,7 +324,13 @@
   </div>
 </header>
 
-<div class="wrap">
+<nav class="mobtabs no-print" id="mobtabs">
+  <button class="on" data-mob="design" onclick="setMobView('design')"><span class="mi">✏️</span>Design</button>
+  <button data-mob="plan" onclick="setMobView('plan')"><span class="mi">▦</span>Plan</button>
+  <button data-mob="cost" onclick="setMobView('cost')"><span class="mi">💰</span>Cost</button>
+</nav>
+
+<div class="wrap" id="wrap" data-mob="design">
   <!-- ============ LEFT: INPUTS ============ -->
   <div class="col left">
     <div class="grp">
@@ -474,7 +526,7 @@
    <div class="inner">
     <div class="banner no-print">
       <span class="ic">💡</span>
-      <div>Prices are <b>editable Quebec estimates</b> — adjust them below. No store has a public stock API, so each item has a <b>🔎 check stock</b> link that searches your store directly.</div>
+      <div>Prices are <b>editable Quebec estimates</b> (<span id="priceDate"></span>) — adjust them below. No store has a public stock API, so each item has a <b>🔎 check stock</b> link that searches your store directly.</div>
     </div>
 
     <div class="summary no-print" id="summaryLine"></div>
@@ -485,6 +537,13 @@
       <div class="kpi"><div class="k">Total (taxes in)</div><div class="v accent" id="kpiTotal">$0</div></div>
       <div class="kpi"><div class="k" id="kpiPerSqftLbl">Cost per ft²</div><div class="v" id="kpiPerSqft">$0</div></div>
     </div>
+
+    <div class="costbar-wrap no-print" id="costBarWrap" style="display:none">
+      <div class="costbar" id="costBar"></div>
+      <div class="costleg" id="costLeg"></div>
+    </div>
+
+    <div id="reviewBox" class="no-print"></div>
 
     <div class="grp">
       <h2><span class="ic">🏬</span> Store &amp; pricing</h2>
@@ -620,15 +679,16 @@ const MATERIALS = {
 };
 
 const CAT = {
-  decking:{label:'Decking', ic:'🪵', order:1},
-  framing:{label:'Framing', ic:'🪚', order:2},
-  footing:{label:'Footings & posts', ic:'🧱', order:3},
-  drainage:{label:'Under-deck drainage', ic:'💧', order:3.5},
-  hardware:{label:'Hardware & fasteners', ic:'🔩', order:4},
-  stairs:{label:'Stairs', ic:'🪜', order:5},
-  railing:{label:'Railing', ic:'🚧', order:6},
-  fascia:{label:'Fascia & skirting', ic:'📐', order:7},
+  decking:{label:'Decking', ic:'🪵', order:1, col:'#d1954f'},
+  framing:{label:'Framing', ic:'🪚', order:2, col:'#c084fc'},
+  footing:{label:'Footings & posts', ic:'🧱', order:3, col:'#8fa0ac'},
+  drainage:{label:'Under-deck drainage', ic:'💧', order:3.5, col:'#3fb6a8'},
+  hardware:{label:'Hardware & fasteners', ic:'🔩', order:4, col:'#63b3ed'},
+  stairs:{label:'Stairs', ic:'🪜', order:5, col:'#ff8fab'},
+  railing:{label:'Railing', ic:'🚧', order:6, col:'#5bd68a'},
+  fascia:{label:'Fascia & skirting', ic:'📐', order:7, col:'#e0a458'},
 };
+const PRICE_DATE='reviewed 2026';   // shown as a trust stamp on the pricing banner
 
 const DEFAULT_PRICES = {
   deck_54x6:      {label:'PT 5/4x6 decking board', unit:'/board', v:11.0, search:'5/4 x 6 pressure treated decking'},
@@ -843,6 +903,11 @@ function toggleUnits(){ metric=!metric; document.getElementById('unitsBtn').text
 /* ---- document language (proposal + permit only; app UI stays English) ---- */
 let docLang='en';
 function toggleDocLang(){ docLang=docLang==='en'?'fr':'en'; document.getElementById('docLangBtn').textContent='🌐 '+docLang.toUpperCase(); persist(); toast(docLang==='fr'?'Documents en français':'Documents in English'); }
+function applyTheme(t){ document.documentElement.dataset.theme=t; const b=document.getElementById('themeBtn'); if(b)b.textContent=t==='light'?'☀️':'🌙'; }
+function toggleTheme(){ const t=document.documentElement.dataset.theme==='light'?'dark':'light'; applyTheme(t); try{localStorage.setItem('patioDeck.theme',t);}catch(e){} }
+function setMobView(v){ const w=document.getElementById('wrap'); if(w)w.dataset.mob=v;
+  document.querySelectorAll('#mobtabs button').forEach(b=>b.classList.toggle('on',b.dataset.mob===v));
+  if(v==='plan')draw(); }
 const DOC_T={
   en:{ propTitle:'Deck Proposal', propHead:'Patio Deck Proposal', backyard:'Backyard patio deck', prepared:'Prepared', qcPricing:'Quebec pricing', estTotal:'Estimated total', taxesIn:'taxes in', perArea:'/'+'',
     deckArea:'Deck area', footprint:'Footprint', deckMat:'Decking material', deckBoards:'Decking boards', framing:'Framing', footings:'Footings', height:'Height', stairs:'Stairs', railingExp:'Railing (exposed)', none:'—',
@@ -1267,6 +1332,15 @@ function draw(){
   if(resizing) cv.style.cursor=CUR[resizing.handle];
   else if(stairDrag) cv.style.cursor='grabbing';
   else if(drawing) cv.style.cursor='crosshair';
+  // edge orientation labels — map the Front/Back/Left/Right dropdowns onto the plan
+  { const B=boundsFt(), midx=px((B.minX+B.maxX)/2), midy=px((B.minY+B.maxY)/2);
+    ctx.fillStyle='#54646f'; ctx.font='700 10px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const house=document.getElementById('hasHouse').checked||document.getElementById('attached').checked;
+    ctx.fillText(house?'BACK · house':'BACK', midx, Math.max(9,px(B.minY)-13));
+    ctx.fillText('FRONT', midx, Math.min(cv.height-9,px(B.maxY)+13));
+    ctx.save(); ctx.translate(Math.max(9,px(B.minX)-13), midy); ctx.rotate(-Math.PI/2); ctx.fillText('LEFT',0,0); ctx.restore();
+    ctx.save(); ctx.translate(Math.min(cv.width-9,px(B.maxX)+13), midy); ctx.rotate(Math.PI/2); ctx.fillText('RIGHT',0,0); ctx.restore();
+  }
   drawCompass();
   const fram=document.getElementById('showFraming').checked
     ? ` &nbsp;|&nbsp; <span style="color:#a9814a">━ joists</span> <span style="color:#c56a1c">━ beam ▪ post</span> <span style="color:#7d9b5c">┅ blocking</span> <span style="color:#d1533a">┅ ledger</span>`
@@ -1934,6 +2008,19 @@ const money0=v=>'$'+Math.round(v).toLocaleString('en-CA');
 let lastBOQ=null;
 function applyBoardLen(L){ document.getElementById('boardLen').value=L; draw(); recalc(); toast('Board length set to '+L+'′'); }
 
+// things worth a second look before a client PDF / shopping list goes out
+function reviewIssues(r){
+  const g=id=>document.getElementById(id), out=[];
+  const maxH=r.multiLevel?r.hMax:(parseFloat(g('deckHeight').value)||0);
+  if(r.spanFail||r.effSpanMax>r.joistSpanMax+0.01) out.push('Joist span is over the allowed limit — choose a deeper joist or tighter O.C. spacing.');
+  if(r.beamWarn) out.push('The chosen beam can’t span your post spacing — add posts or pick a deeper beam.');
+  if(r.overlap) out.push('Sections overlap — the estimate uses the true footprint; move them apart if that’s unintended.');
+  if(maxH>=2 && !g('hasRail').checked) out.push(`Deck is ${fmtLen(maxH)} high but has no railing — most codes require a guard above ~24″ (600&nbsp;mm).`);
+  if(g('hasStairs').checked && maxH<0.5) out.push('Stairs are enabled but the deck height is ~0 — set a deck height.');
+  if((parseFloat(g('waste').value)||0)>=20) out.push(`Waste allowance is ${g('waste').value}% — that’s high; ~10% is typical.`);
+  if(!g('attached').checked && g('hasHouse').checked) out.push('Marked freestanding but the house wall is shown — check the “Attached to house” setting.');
+  return out;
+}
 function recalc(){
   const r=computeBOQ(); lastBOQ=r;
   const store=document.getElementById('store').value;
@@ -1941,10 +2028,10 @@ function recalc(){
   // group by category
   const groups={}; r.items.forEach(it=>{(groups[it.cat]=groups[it.cat]||[]).push(it);});
   const catList=document.getElementById('catList'); catList.innerHTML='';
-  let subtotal=0;
+  let subtotal=0; const catSums={};
   Object.keys(CAT).sort((a,b)=>CAT[a].order-CAT[b].order).forEach(catKey=>{
     const its=groups[catKey]; if(!its)return;
-    const catSum=its.reduce((a,i)=>a+i.total,0); subtotal+=catSum;
+    const catSum=its.reduce((a,i)=>a+i.total,0); subtotal+=catSum; catSums[catKey]=catSum;
     const div=document.createElement('div'); div.className='cat'+(collapsed[catKey]!==false?' collapsed':''); // collapsed by default
     div.innerHTML=`<div class="cat-head" data-cat="${catKey}">
         <span class="ic">${CAT[catKey].ic}</span><span class="nm">${CAT[catKey].label}</span>
@@ -1994,6 +2081,33 @@ function recalc(){
       const extra=parts.length?(' with '+parts.join(' and ')):'';
       sEl.innerHTML=`<span class="ic">🧭</span><div>A <b>${shape}</b> ${att} <b>${matWord}</b> deck, ${hgt}${extra} — about <b>${money0(grand)}</b> all-in${r.area>0?` (${money(grand/(r.area*perUnit))}/${perLbl})`:''}.</div>`;
     }
+  }
+
+  // ---- cost breakdown bar (where the money goes) ----
+  const cbw=document.getElementById('costBarWrap');
+  if(cbw){
+    const segs=[];
+    Object.keys(catSums).sort((a,b)=>CAT[a].order-CAT[b].order).forEach(k=>segs.push({label:CAT[k].label,val:catSums[k],col:CAT[k].col}));
+    if(r.laborTotal>0)segs.push({label:'Labour',val:r.laborTotal,col:'#f6a623'});
+    if(r.contingency>0)segs.push({label:'Contingency',val:r.contingency,col:'#ffb454'});
+    if(r.delivery>0)segs.push({label:'Delivery',val:r.delivery,col:'#7d9b5c'});
+    if(gst+qst>0)segs.push({label:'Taxes (GST+QST)',val:gst+qst,col:'#4a5b66'});
+    if(r.permit>0)segs.push({label:'Permit',val:r.permit,col:'#9fb2bd'});
+    const tot=segs.reduce((a,s)=>a+s.val,0);
+    if(tot>0){
+      cbw.style.display='block';
+      document.getElementById('costBar').innerHTML=segs.map(s=>`<i style="width:${(s.val/tot*100).toFixed(2)}%;background:${s.col}" title="${s.label}: ${money(s.val)}"></i>`).join('');
+      document.getElementById('costLeg').innerHTML=segs.map(s=>`<span class="it"><span class="dot" style="background:${s.col}"></span>${s.label} <b>${Math.round(s.val/tot*100)}%</b></span>`).join('');
+    } else cbw.style.display='none';
+  }
+
+  // ---- pre-export design review (surfaces what's easy to miss) ----
+  const rb=document.getElementById('reviewBox');
+  if(rb){
+    const issues=reviewIssues(r);
+    rb.innerHTML = issues.length
+      ? `<div class="review warn"><div class="rtitle">⚠️ ${issues.length} thing${issues.length>1?'s':''} to review before exporting</div><ul>${issues.map(i=>`<li>${i}</li>`).join('')}</ul></div>`
+      : `<div class="review ok"><div class="rtitle">✅ Design looks ready to export</div></div>`;
   }
 
   const warn=document.getElementById('warnBox');
@@ -2101,6 +2215,8 @@ function exportCSV(){
 function generateProposal(){
   if(!lastBOQ){recalc();}
   const r=lastBOQ, store=document.getElementById('store').value, g=id=>document.getElementById(id);
+  const iss=reviewIssues(r);
+  if(iss.length && !confirm(`Design review flagged ${iss.length} item${iss.length>1?'s':''}:\n\n• ${iss.map(x=>x.replace(/&nbsp;/g,' ').replace(/<[^>]+>/g,'')).join('\n• ')}\n\nGenerate the proposal anyway?`))return;
   const client=(prompt('Client / project name for the proposal (optional):','')||'').trim();
   // capture plan + 3D + section snapshots for the proposal
   const sv3d=view3d, svElev=elevView;
@@ -2623,6 +2739,8 @@ function maybeShowIntro(){ try{ if(localStorage.getItem('patioDeck.seenIntro'))r
   document.getElementById('introModal').classList.add('show'); }
 
 (function init(){
+  try{ applyTheme(localStorage.getItem('patioDeck.theme')==='light'?'light':'dark'); }catch(e){}
+  const pd=document.getElementById('priceDate'); if(pd)pd.textContent=PRICE_DATE;
   buildProfileOptions(); buildFrostZones(); buildExcludeToggles(); updateFootingVis(); renderSectionList(); renderPriceEditor();
   let loaded=false;
   const shared=decodeShare();                                  // 1) a shared #d= link wins
