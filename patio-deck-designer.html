@@ -170,6 +170,38 @@
   .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:20px 22px;width:100%;max-width:520px;box-shadow:var(--shadow)}
   .modal textarea{width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:9px 11px;color:var(--txt);font:inherit;resize:vertical}
   .modal textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(246,166,35,.15)}
+  /* header dropdown menus */
+  .menu{position:relative;display:inline-block}
+  .menu-list{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line2);
+    border-radius:10px;padding:6px;box-shadow:var(--shadow);display:none;flex-direction:column;gap:2px;min-width:190px;z-index:45}
+  .menu-list.open{display:flex}
+  .menu-list button{justify-content:flex-start;background:transparent;border:none;width:100%;padding:8px 10px;font-size:12.5px;font-weight:600}
+  .menu-list button:hover{background:var(--panel3);border:none;transform:none}
+  .menu-list .sep{height:1px;background:var(--line);margin:4px 2px}
+
+  /* plain-language summary line */
+  .summary{background:linear-gradient(135deg,#1b2a22,#152420);border:1px solid #2c4a3a;border-radius:10px;
+    padding:9px 12px;font-size:12px;line-height:1.5;color:#cfe9d8;margin-bottom:12px;display:flex;gap:8px;align-items:flex-start}
+  .summary .ic{font-size:14px;flex:none}
+  .summary b{color:#eafff3}
+
+  /* template + intro cards */
+  .tpl-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:14px 0 4px}
+  .tpl{background:var(--panel2);border:1px solid var(--line2);border-radius:11px;padding:13px 14px;cursor:pointer;
+    text-align:left;transition:all .15s;display:block}
+  .tpl:hover{border-color:var(--accent);background:#212d35;transform:translateY(-2px)}
+  .tpl .te{font-size:22px;line-height:1}
+  .tpl .tn{font-weight:700;font-size:13.5px;margin:7px 0 2px;color:var(--txt)}
+  .tpl .td{font-size:11.5px;color:var(--muted);line-height:1.4}
+  .intro-steps{list-style:none;padding:0;margin:14px 0}
+  .intro-steps li{display:flex;gap:11px;align-items:flex-start;padding:7px 0;font-size:13px;color:var(--txt)}
+  .intro-steps .n{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;
+    font-weight:800;color:#241700;background:linear-gradient(135deg,var(--accent),var(--accent-d))}
+  .help{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line2);
+    color:var(--muted);font-size:10px;font-weight:700;margin-left:5px;cursor:help;vertical-align:middle}
+  .help:hover{border-color:var(--accent);color:var(--accent)}
+  @media (max-width:600px){.tpl-grid{grid-template-columns:1fr}}
+
   /* toast */
   #toast{position:fixed;bottom:20px;left:50%;transform:translate(-50%,20px);background:#20303a;border:1px solid #2f4a58;
     color:#e7f2f8;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:var(--shadow);opacity:0;
@@ -221,15 +253,27 @@
   <div class="actions no-print">
     <button class="small ghost" id="unitsBtn" onclick="toggleUnits()" title="Toggle feet / metric">⇄ ft</button>
     <button class="small ghost" id="docLangBtn" onclick="toggleDocLang()" title="Language for the proposal / permit documents">🌐 EN</button>
+    <button class="small ghost" onclick="openTemplates()" title="Start from a ready-made deck">🎯 Templates</button>
     <button class="small ghost" onclick="openCompare()" title="Wood vs composite">⚖ Compare</button>
     <button class="small primary" onclick="generateProposal()">📋 Proposal / PDF</button>
-    <button class="small ghost" onclick="generatePermit()">🏛 Permit sheet</button>
-    <button class="small ghost" onclick="exportCSV()">📄 CSV</button>
-    <button class="small ghost" onclick="openSaves()">📚 Saved</button>
-    <button class="small ghost" onclick="saveProject()">💾 Save</button>
-    <button class="small ghost" onclick="document.getElementById('loadFile').click()">📂 Load</button>
-    <button class="small ghost" onclick="shareState()">🔗 Share</button>
-    <button class="small ghost" onclick="newDesign()">🆕 New</button>
+    <div class="menu">
+      <button class="small ghost" onclick="toggleMenu(event,'exportMenu')" title="Other exports">⬇ Export ▾</button>
+      <div class="menu-list" id="exportMenu">
+        <button onclick="generatePermit()">🏛 Permit sheet</button>
+        <button onclick="exportCSV()">📄 CSV shopping list</button>
+      </div>
+    </div>
+    <div class="menu">
+      <button class="small ghost" onclick="toggleMenu(event,'projectMenu')" title="Save / load / share">📁 Project ▾</button>
+      <div class="menu-list" id="projectMenu">
+        <button onclick="saveProject()">💾 Save to file</button>
+        <button onclick="document.getElementById('loadFile').click()">📂 Load from file</button>
+        <button onclick="openSaves()">📚 Saved designs</button>
+        <button onclick="shareState()">🔗 Copy share link</button>
+        <div class="sep"></div>
+        <button onclick="newDesign()">🆕 New design</button>
+      </div>
+    </div>
     <input id="loadFile" type="file" accept=".json" style="display:none" onchange="loadProject(event)">
   </div>
 </header>
@@ -239,9 +283,12 @@
   <div class="col left">
     <div class="grp">
       <h2><span class="ic">▦</span> Deck sections</h2>
-      <div class="hint" style="margin-bottom:9px">Drag on the canvas to sketch a section, or add one and type exact feet. Use several for an L-shape.</div>
+      <div class="hint" style="margin-bottom:9px">Drag on the canvas to sketch a section, or add one and type exact feet. Use several for an L-shape. <a href="#" onclick="openTemplates();return false">Start from a template →</a></div>
       <div id="sectionList"></div>
-      <button class="small ghost" style="width:100%" onclick="addSection()">＋ Add section</button>
+      <div class="row" style="gap:7px">
+        <button class="small ghost" style="flex:1" onclick="addSection()">＋ Add section</button>
+        <button class="small ghost" style="flex:0 0 auto" onclick="openTemplates()" title="Ready-made decks">🎯</button>
+      </div>
     </div>
 
     <div class="grp">
@@ -278,7 +325,7 @@
     <div class="grp">
       <h2><span class="ic">🪚</span> Framing &amp; footings</h2>
       <div class="row">
-        <div><label>Joist spacing (in O.C.)</label>
+        <div><label>Joist spacing (in O.C.)<span class="help" title="On-Center — the distance between joist centres. 16″ is standard; 12″ is stiffer for composite decking.">?</span></label>
           <select id="joistOC"><option>12</option><option selected>16</option><option>24</option></select>
         </div>
         <div><label>Deck height (ft)</label>
@@ -307,7 +354,7 @@
         <div><label>Footing Ø (in)</label>
           <select id="footingDia"><option value="8" selected>8″</option><option value="10">10″</option><option value="12">12″</option></select>
         </div>
-        <div><label>Frost depth (ft)</label><input type="number" id="frostDepth" value="4.5" step="0.5" min="1"></div>
+        <div><label>Frost depth (ft)<span class="help" title="How deep footings must go to sit below the winter frost line so they don't heave. Varies by region — confirm with your municipality.">?</span></label><input type="number" id="frostDepth" value="4.5" step="0.5" min="1"></div>
       </div>
       <div id="frostZoneRow" style="display:none">
         <label>Region preset (fills frost depth)</label>
@@ -397,7 +444,7 @@
     </div>
     <div class="canvas-shell">
       <canvas id="cv" width="1000" height="680" role="img" aria-label="Deck plan / 3D / section drawing. Use the panels to edit dimensions; this canvas is a visual preview.">Deck drawing preview — your browser does not support canvas.</canvas>
-      <div class="canvas-hint" id="cvHint">Drag to draw · tap a section to select &amp; move · pinch or scroll to zoom · Del to remove</div>
+      <div class="canvas-hint" id="cvHint">Drag to draw · tap to select · arrow keys nudge · pinch/scroll to zoom · Del to remove</div>
       <div class="canvas-legend" id="cvLegend"></div>
       <div class="sel-editor" id="selEditor">
         <div class="se-title"><span class="sw" id="seSwatch"></span> Section <span id="seNum"></span></div>
@@ -429,6 +476,8 @@
       <span class="ic">💡</span>
       <div>Prices are <b>editable Quebec estimates</b> — adjust them below. No store has a public stock API, so each item has a <b>🔎 check stock</b> link that searches your store directly.</div>
     </div>
+
+    <div class="summary no-print" id="summaryLine"></div>
 
     <div class="kpis">
       <div class="kpi"><div class="k">Deck area</div><div class="v" id="kpiArea">0<span class="u"> ft²</span></div></div>
@@ -528,6 +577,32 @@
     <div id="savesList"></div>
   </div>
 </div>
+
+<div id="templatesModal" class="modal-bg" onclick="if(event.target===this)closeTemplates()">
+  <div class="modal" style="max-width:560px">
+    <h2 style="border:none;margin:0 0 4px"><span class="ic">🎯</span> Start from a template</h2>
+    <div class="hint">Pick a starting point — you can resize, restyle and re-price everything after. This replaces your current design.</div>
+    <div class="tpl-grid" id="tplGrid"></div>
+    <div class="row" style="margin-top:6px"><button class="ghost" onclick="closeTemplates()">Cancel</button></div>
+  </div>
+</div>
+
+<div id="introModal" class="modal-bg" onclick="if(event.target===this)closeIntro()">
+  <div class="modal" style="max-width:500px">
+    <h2 style="border:none;margin:0 0 4px"><span class="ic">👋</span> Welcome — design your deck in 3 steps</h2>
+    <div class="hint">A free offline tool: it sizes your framing &amp; footings and prices the full material list with editable Quebec estimates. Nothing leaves your browser.</div>
+    <ol class="intro-steps">
+      <li><span class="n">1</span><div><b>Shape it.</b> Drag on the canvas to sketch a section, or type exact feet. Add more sections for an L-shape.</div></li>
+      <li><span class="n">2</span><div><b>Detail it.</b> Set material, framing, stairs, railing &amp; finish in the left panel. It auto-sizes joists &amp; beams.</div></li>
+      <li><span class="n">3</span><div><b>Export it.</b> Get a client proposal (PDF), permit sheet, or CSV shopping list with store stock links.</div></li>
+    </ol>
+    <div class="row" style="margin-top:8px">
+      <button class="primary" onclick="closeIntro();openTemplates()">🎯 Start from a template</button>
+      <button class="ghost" onclick="closeIntro()">Start blank</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -658,6 +733,7 @@ const STORE_SEARCH = {
 };
 const STORE_NAME={canac:'Canac',rona:'Rona',homedepot:'Home Depot',patrickmorin:'Patrick Morin'};
 const SECTION_COLORS=['#f6a623','#3fb6a8','#c084fc','#5bd68a','#ff8fab','#63b3ed'];
+const RAIL_WORD={rail_alum:'aluminum',rail_wood:'wood-picket',rail_comp:'composite',rail_glass:'glass',rail_cable:'cable'};
 const STAIR_CORNER_CLEAR=0.75;   // ft the stair flight keeps clear of a deck corner (post + railing)
 const LS_KEY='patioDeckDesign.v2';
 
@@ -836,7 +912,7 @@ function setView(mode){
   document.getElementById('view3dTools').style.display=mode==='3d'?'flex':'none';
   const hint=document.getElementById('cvHint');
   hint.style.display=mode==='elev'?'none':'';
-  hint.innerHTML=mode==='3d'?'Drag to orbit · click a section to select · edit or 🗑 delete':'Drag to draw · click a section to select &amp; move · Del to remove';
+  hint.innerHTML=mode==='3d'?'Drag to orbit · click a section to select · edit or 🗑 delete':'Drag to draw · tap to select · arrow keys nudge · Del to remove';
   draw(); updateSelEditor();
 }
 function rotate3D(deg){ az3d+=deg*Math.PI/180; draw(); }
@@ -1105,6 +1181,11 @@ function draw(){
   }
   for(let gx=0;gx<cv.width;gx+=scale){const maj=Math.round(gx/scale)%5===0;ctx.strokeStyle=maj?'#223038':'#141d2288';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,cv.height);ctx.stroke();}
   for(let gy=0;gy<cv.height;gy+=scale){const maj=Math.round(gy/scale)%5===0;ctx.strokeStyle=maj?'#223038':'#141d2288';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(cv.width,gy);ctx.stroke();}
+
+  if(!state.sections.length){ ctx.fillStyle='#5b6b76'; ctx.textAlign='center';
+    ctx.font='600 16px system-ui'; ctx.fillText('Drag here to sketch your deck', cv.width/2, cv.height/2-6);
+    ctx.font='500 12px system-ui'; ctx.fillStyle='#465862'; ctx.fillText('— or pick 🎯 Templates in the toolbar above', cv.width/2, cv.height/2+16);
+    return; }
 
   const face=(findProfile(state.profile)||{face:5.5}).face;
   const gap=parseFloat(document.getElementById('gap').value)||0;
@@ -1589,6 +1670,18 @@ cv.addEventListener('wheel',e=>{ e.preventDefault();
   else { const el=document.getElementById('scale'); let v=parseFloat(el.value)||14; v=Math.max(6,Math.min(34, Math.round(v+(e.deltaY<0?2:-2)))); el.value=v; draw(); }
 },{passive:false});
 document.addEventListener('keydown',e=>{ if((e.key==='Delete'||e.key==='Backspace')&&selId!==null&&document.activeElement.tagName!=='INPUT'){ delSection(selId); } });
+// arrow keys nudge the selected section by the snap step (Shift = ×5) — precise editing without dragging
+document.addEventListener('keydown',e=>{
+  if(!e.key.startsWith('Arrow')||selId===null)return;
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
+  const s=state.sections.find(x=>x.id===selId); if(!s)return;
+  e.preventDefault();
+  const step=(parseFloat(document.getElementById('snap').value)||0.5)*(e.shiftKey?5:1)||0.5;
+  if(e.key==='ArrowLeft')s.x-=step; else if(e.key==='ArrowRight')s.x+=step;
+  else if(e.key==='ArrowUp')s.y-=step; else if(e.key==='ArrowDown')s.y+=step;
+  s.x=Math.max(0,Math.round(s.x*100)/100); s.y=Math.max(0,Math.round(s.y*100)/100);
+  renderSectionList(); updateSelEditor(); draw(); recalc();
+});
 document.addEventListener('keydown',e=>{
   if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;   // let inputs do native text undo
   if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')){ e.preventDefault(); e.shiftKey?redo():undo(); }
@@ -1885,6 +1978,23 @@ function recalc(){
   document.getElementById('kpiTotal').textContent=money0(grand);
   document.getElementById('kpiPerSqft').textContent=r.area>0?money(grand/(r.area*perUnit)):'$0';
   const perSqLbl=document.getElementById('kpiPerSqftLbl'); if(perSqLbl)perSqLbl.textContent='Cost per '+perLbl;
+
+  // plain-language "what you're building" line
+  const sEl=document.getElementById('summaryLine');
+  if(sEl){ const g2=id=>document.getElementById(id);
+    if(!state.sections.length){ sEl.innerHTML=`<span class="ic">🧭</span><div>No sections yet — drag on the canvas or pick a <b>🎯 Template</b> to begin.</div>`; }
+    else{
+      const matWord=state.material==='comp'?'composite':'pressure-treated wood';
+      const nSec=state.sections.length;
+      const shape=nSec>1?`${nSec}-section (${fmtArea(r.area)})`:`${fmtLen(state.sections[0].w)} × ${fmtLen(state.sections[0].h)}`;
+      const att=g2('attached').checked?'attached':'freestanding';
+      const hgt=r.multiLevel?'multi-level':`${fmtLen(parseFloat(g2('deckHeight').value)||0)} high`;
+      const parts=[]; if(g2('hasStairs').checked)parts.push('stairs');
+      if(g2('hasRail').checked)parts.push((RAIL_WORD[g2('railStyle').value]||'')+' railing');
+      const extra=parts.length?(' with '+parts.join(' and ')):'';
+      sEl.innerHTML=`<span class="ic">🧭</span><div>A <b>${shape}</b> ${att} <b>${matWord}</b> deck, ${hgt}${extra} — about <b>${money0(grand)}</b> all-in${r.area>0?` (${money(grand/(r.area*perUnit))}/${perLbl})`:''}.</div>`;
+    }
+  }
 
   const warn=document.getElementById('warnBox');
   warn.innerHTML=r.overlap?`<div class="banner" style="background:#3a2a18;border-color:#5c4326;color:#ffdca8"><span class="ic">⚠️</span><div>Sections overlap — using true footprint of <b>${r.area.toFixed(0)} ft²</b> (not ${r.sumArea.toFixed(0)}). Move them apart on the canvas if that's not intended.</div></div>`:'';
@@ -2479,6 +2589,39 @@ document.getElementById('cantilever').addEventListener('change',()=>{draw();reca
 document.getElementById('snap').addEventListener('input',()=>{});
 document.getElementById('photoOp').addEventListener('input',draw);
 
+/* ============================================================ TEMPLATES · HEADER MENUS · ONBOARDING ============================================================ */
+const TEMPLATES=[
+  {emoji:'🏡',name:'10 × 12 attached',desc:'Classic backyard deck off the house, with stairs & railing.',
+    patch:{material:'wood',attached:true,hasHouse:true,hasStairs:true,hasRail:true,railStyle:'rail_alum',deckHeight:'3',dir:'length'},
+    sections:[{x:6,y:6,w:10,h:12}]},
+  {emoji:'🌳',name:'12 × 16 freestanding',desc:'Detached patio away from the house, beam at each end.',
+    patch:{material:'wood',attached:false,hasHouse:false,hasStairs:true,hasRail:true,railStyle:'rail_wood',deckHeight:'2',dir:'length'},
+    sections:[{x:6,y:6,w:12,h:16}]},
+  {emoji:'📐',name:'L-shape wraparound',desc:'Two sections that wrap a house corner.',
+    patch:{material:'wood',attached:true,hasHouse:true,hasStairs:true,hasRail:true,railStyle:'rail_alum',deckHeight:'3',dir:'length'},
+    sections:[{x:6,y:6,w:16,h:10},{x:6,y:16,w:8,h:8}]},
+  {emoji:'🎉',name:'16 × 20 composite',desc:'Big low-maintenance entertainer in composite.',
+    patch:{material:'comp',attached:true,hasHouse:true,hasStairs:true,hasRail:true,railStyle:'rail_alum',deckHeight:'3',dir:'length'},
+    sections:[{x:5,y:5,w:16,h:20}]},
+];
+function openTemplates(){ const g=document.getElementById('tplGrid');
+  g.innerHTML=TEMPLATES.map((t,i)=>`<button class="tpl" onclick="applyTemplate(${i})"><div class="te">${t.emoji}</div><div class="tn">${t.name}</div><div class="td">${t.desc}</div></button>`).join('');
+  document.getElementById('templatesModal').classList.add('show'); }
+function closeTemplates(){ document.getElementById('templatesModal').classList.remove('show'); }
+function applyTemplate(i){ const t=TEMPLATES[i]; if(!t)return;
+  let id=1; const sections=t.sections.map(s=>({id:id++,...s}));
+  applyInputs({...collectInputs(),...t.patch,sections,photo:null});
+  selId=null; updateSelEditor(); closeTemplates(); fitView(); toast(t.name+' loaded — tweak anything'); }
+
+function toggleMenu(e,id){ e.stopPropagation(); const el=document.getElementById(id), open=el.classList.contains('open');
+  document.querySelectorAll('.menu-list.open').forEach(m=>m.classList.remove('open'));
+  if(!open)el.classList.add('open'); }
+document.addEventListener('click',()=>document.querySelectorAll('.menu-list.open').forEach(m=>m.classList.remove('open')));
+
+function closeIntro(){ document.getElementById('introModal').classList.remove('show'); try{localStorage.setItem('patioDeck.seenIntro','1');}catch(e){} }
+function maybeShowIntro(){ try{ if(localStorage.getItem('patioDeck.seenIntro'))return; }catch(e){ return; }
+  document.getElementById('introModal').classList.add('show'); }
+
 (function init(){
   buildProfileOptions(); buildFrostZones(); buildExcludeToggles(); updateFootingVis(); renderSectionList(); renderPriceEditor();
   let loaded=false;
@@ -2486,7 +2629,7 @@ document.getElementById('photoOp').addEventListener('input',draw);
   if(shared){ try{ applyInputs(shared); loaded=true; setTimeout(()=>toast('Loaded shared design'),300); }catch(e){} }
   if(!loaded){ try{ const saved=localStorage.getItem(LS_KEY);  // 2) else restore autosaved session
     if(saved){ applyInputs(JSON.parse(saved)); loaded=true; setTimeout(()=>toast('Restored your last session'),300); } }catch(e){} }
-  if(!loaded){ draw(); recalc(); }
+  if(!loaded){ draw(); recalc(); maybeShowIntro(); }   // first-run welcome only for a brand-new blank session
   undoStack=[JSON.stringify(collectInputs())]; undoPos=0; updateUndoUI();   // seed history baseline
 })();
 </script>
